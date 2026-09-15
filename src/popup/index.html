@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Trails Scout</title>
+    <link href="./style.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <main class="shell">
+      <header class="header">
+        <h1>Trails Scout</h1>
+        <div class="header-actions">
+          <div aria-live="polite" class="token-feedback" id="tokenFeedback">
+            <i
+              aria-hidden="true"
+              class="token-feedback-icon"
+              data-lucide="circle"
+              id="tokenFeedbackIcon"
+            ></i>
+            <span id="tokenFeedbackText"></span>
+          </div>
+          <div class="settings-menu-container" id="settingsMenuContainer">
+            <button
+              aria-expanded="false"
+              aria-haspopup="menu"
+              class="secondary icon-button"
+              id="settingsButton"
+              title="Settings"
+              type="button"
+            >
+              <i class="icon" data-lucide="settings"></i>
+            </button>
+            <div class="settings-menu" hidden id="settingsMenu" role="menu">
+              <button
+                class="settings-menu-item"
+                id="deleteTokenButton"
+                role="menuitem"
+                type="button"
+              >
+                <i class="icon" data-lucide="trash-2"></i>
+                Delete token
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <nav aria-label="Trails Scout workflow" class="mega-menu">
+        <button
+          aria-controls="authPanel"
+          aria-selected="true"
+          class="menu-item active"
+          data-tab="auth"
+          id="authTab"
+          role="tab"
+          type="button"
+        >
+          <i class="icon" data-lucide="key-round"></i>
+          <span>Connection</span>
+        </button>
+        <span
+          class="menu-tooltip"
+          data-tooltip="Log in and fetch a token to unlock application selection."
+        >
+          <button
+            aria-controls="targetPanel"
+            aria-disabled="true"
+            aria-selected="false"
+            class="menu-item"
+            data-tab="target"
+            disabled
+            id="targetTab"
+            role="tab"
+            type="button"
+          >
+            <i class="icon" data-lucide="layers"></i>
+            <span>Application</span>
+          </button>
+        </span>
+        <span
+          class="menu-tooltip"
+          data-tooltip="Select an application and stage to unlock element creation."
+        >
+          <button
+            aria-controls="elementPanel"
+            aria-disabled="true"
+            aria-selected="false"
+            class="menu-item"
+            data-tab="element"
+            disabled
+            id="elementTab"
+            role="tab"
+            type="button"
+          >
+            <i class="icon" data-lucide="crosshair"></i>
+            <span>Element</span>
+          </button>
+        </span>
+      </nav>
+
+      <section class="panel tab-panel active" id="authPanel" role="tabpanel">
+        <div class="panel-heading">
+          <h2>Connection</h2>
+        </div>
+
+        <label for="keycloakUrl">Keycloak token endpoint</label>
+        <input id="keycloakUrl" type="url" value="" />
+
+        <label for="trailsServiceUrl">Trails service URL</label>
+        <div class="input-action-row">
+          <input id="trailsServiceUrl" type="url" value="" />
+          <button
+            class="secondary square-button"
+            id="testTrailsConnectionButton"
+            title="Test Trails connection"
+            type="button"
+          >
+            <i class="icon" data-lucide="cloud-check"></i>
+          </button>
+        </div>
+
+        <div class="grid">
+          <div>
+            <label for="username">Username</label>
+            <input
+              autocapitalize="off"
+              autocomplete="off"
+              data-lpignore="true"
+              data-1p-ignore
+              id="username"
+              spellcheck="false"
+              type="text"
+            />
+          </div>
+          <div>
+            <label for="password">Password</label>
+            <input
+              autocapitalize="off"
+              autocomplete="current-password"
+              id="password"
+              spellcheck="false"
+              type="password"
+            />
+          </div>
+        </div>
+
+        <div class="grid">
+          <div>
+            <label for="clientId">Client ID</label>
+            <input id="clientId" type="text" value="" />
+          </div>
+          <div>
+            <label for="clientSecret">Client secret (if required)</label>
+            <input autocomplete="off" id="clientSecret" type="password" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="primary" disabled id="loginButton" type="button">
+            <i class="icon" data-lucide="log-in"></i>
+            Log in
+          </button>
+          <button class="secondary" id="showTokenButton" type="button">
+            <i class="icon" data-lucide="eye" id="showTokenIcon"></i>
+            <span id="showTokenLabel">Show token</span>
+          </button>
+        </div>
+
+        <div class="token-box" id="tokenBox">
+          <label for="tokenOutput">Access token</label>
+          <textarea id="tokenOutput" readonly></textarea>
+        </div>
+      </section>
+
+      <section class="panel tab-panel" hidden id="targetPanel" role="tabpanel">
+        <div class="panel-heading">
+          <h2>Application and stage</h2>
+          <button
+            class="secondary icon-button"
+            disabled
+            id="refreshResourcesButton"
+            title="Refresh resources"
+            type="button"
+          >
+            <i class="icon" data-lucide="refresh-cw"></i>
+          </button>
+        </div>
+
+        <div class="grid">
+          <div>
+            <label for="applicationSelect">Application</label>
+            <select disabled id="applicationSelect">
+              <option value="">Fetch a token to load applications</option>
+            </select>
+          </div>
+          <div>
+            <label for="stageSelect">Stage</label>
+            <select disabled id="stageSelect">
+              <option value="">Select an application first</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel tab-panel" hidden id="elementPanel" role="tabpanel">
+        <div class="panel-heading">
+          <h2>Element</h2>
+          <button class="secondary" id="startInspectorButton" type="button">
+            <i class="icon" data-lucide="crosshair"></i>
+            Pick locator
+          </button>
+        </div>
+
+        <div class="grid">
+          <div>
+            <label for="elementType">Element type</label>
+            <select id="elementType"></select>
+          </div>
+          <div>
+            <label for="locatorType">Locator type</label>
+            <select id="locatorType">
+              <option value="CSS">CSS</option>
+              <option value="XPATH">XPath</option>
+            </select>
+          </div>
+        </div>
+
+        <label for="elementLabel">Label</label>
+        <input id="elementLabel" type="text" />
+
+        <label for="locatorOutput">Locator</label>
+        <textarea id="locatorOutput" readonly></textarea>
+
+        <div class="actions">
+          <button class="primary" id="createElementButton" type="button">
+            <i class="icon" data-lucide="send"></i>
+            Create element
+          </button>
+        </div>
+      </section>
+
+      <div class="status" id="status">Pick a locator or connect to Trails.</div>
+    </main>
+
+    <script src="./index.ts" type="module"></script>
+  </body>
+</html>
