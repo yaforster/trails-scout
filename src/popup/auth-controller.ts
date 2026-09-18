@@ -16,6 +16,7 @@ interface AuthControllerElements {
   clientIdInput: HTMLInputElement;
   clientSecretInput: HTMLInputElement;
   loginButton: HTMLButtonElement;
+  loginFeedback: HTMLElement;
 }
 
 interface AuthControllerDependencies {
@@ -61,6 +62,7 @@ export function createAuthController(
     clientIdInput,
     clientSecretInput,
     loginButton,
+    loginFeedback,
   } = elements;
 
   const {
@@ -79,10 +81,17 @@ export function createAuthController(
     storageSet,
   } = dependencies;
 
+  [keycloakUrlInput, usernameInput, passwordInput, clientIdInput, clientSecretInput].forEach(
+    (input) => input.addEventListener('input', clearLoginError),
+  );
+
   async function login(): Promise<void> {
     refreshLoginState();
+    clearLoginError();
     if (loginButton.disabled) {
-      tokenPanelController.setStatus('Complete the required connection fields.', 'error');
+      const message = 'Complete the required connection fields.';
+      setLoginError(message);
+      tokenPanelController.setStatus(message, 'error');
       return;
     }
 
@@ -108,7 +117,9 @@ export function createAuthController(
       );
       const result = (await response.json()) as KeycloakTokenResponse;
       if (!response.ok) {
-        tokenPanelController.setStatus(readErrorMessage(result, 'Login failed.'), 'error');
+        const message = readErrorMessage(result, 'Login failed.');
+        setLoginError(message);
+        tokenPanelController.setStatus(message, 'error');
         return;
       }
 
@@ -116,8 +127,27 @@ export function createAuthController(
       await saveSettings();
       await resourceController.loadApplicationStages();
       tabController.activate('target');
-    } catch (error) {
+    } catch {
+      const message =
+        'Could not reach Keycloak. Check the token endpoint URL and network connection.';
+      setLoginError(message, true);
       tokenPanelController.setStatus('Token fetch failed.', 'error');
+    }
+  }
+
+  function clearLoginError(): void {
+    keycloakUrlInput.classList.remove('connection-error');
+    keycloakUrlInput.removeAttribute('aria-invalid');
+    loginFeedback.className = 'field-feedback';
+    loginFeedback.textContent = '';
+  }
+
+  function setLoginError(message: string, invalidKeycloakUrl = false): void {
+    loginFeedback.className = 'field-feedback error';
+    loginFeedback.textContent = message;
+    keycloakUrlInput.classList.toggle('connection-error', invalidKeycloakUrl);
+    if (invalidKeycloakUrl) {
+      keycloakUrlInput.setAttribute('aria-invalid', 'true');
     }
   }
 

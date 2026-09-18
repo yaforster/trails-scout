@@ -59,6 +59,7 @@ const divIds = [
   'settingsMenuContainer',
   'settingsMenu',
   'trailsConnectionFeedback',
+  'loginFeedback',
   'targetSummary',
   'elementTargetSummary',
   'captureBlocker',

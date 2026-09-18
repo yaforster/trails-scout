@@ -195,6 +195,7 @@
               <span id="showTokenLabel">Show token</span>
             </button>
           </div>
+          <div aria-live="assertive" class="field-feedback" id="loginFeedback" role="alert"></div>
 
           <div class="token-box" id="tokenBox">
             <label for="tokenOutput">Access token</label>
@@ -283,8 +284,12 @@
         <label for="locatorOutput">Locator</label>
         <textarea id="locatorOutput" readonly></textarea>
         <div class="actions locator-actions">
-          <button class="secondary" id="editLocatorButton" type="button">Edit locator</button>
+          <button class="secondary" id="editLocatorButton" type="button">
+            <i class="icon" data-lucide="pencil"></i>
+            Edit locator
+          </button>
           <button class="secondary" id="validateLocatorButton" type="button">
+            <i class="icon" data-lucide="circle-check"></i>
             Validate locator
           </button>
           <span aria-live="polite" class="field-feedback" id="locatorValidationFeedback"></span>
@@ -317,15 +322,19 @@
           </p>
           <div class="actions">
             <button class="secondary" id="captureScreenshotButton" type="button">
+              <i class="icon" data-lucide="camera"></i>
               Capture screenshot
             </button>
             <button class="secondary" disabled id="replaceScreenshotButton" type="button">
+              <i class="icon" data-lucide="refresh-cw"></i>
               Replace
             </button>
             <button class="secondary" disabled id="removeScreenshotButton" type="button">
+              <i class="icon" data-lucide="trash-2"></i>
               Remove
             </button>
             <button class="secondary" hidden id="retryScreenshotButton" type="button">
+              <i class="icon" data-lucide="rotate-ccw"></i>
               Retry upload
             </button>
           </div>
@@ -360,11 +369,18 @@
               <i class="creation-card-icon icon" data-lucide="list-plus"></i>
             </div>
             <div class="actions queue-actions">
-              <button class="secondary" id="addToQueueButton" type="button">Add to queue</button>
+              <button class="secondary" id="addToQueueButton" type="button">
+                <i class="icon" data-lucide="list-plus"></i>
+                Add to queue
+              </button>
               <button class="primary" disabled id="createQueueButton" type="button">
+                <i class="icon" data-lucide="send"></i>
                 Create queued
               </button>
-              <button class="secondary" disabled id="clearQueueButton" type="button">Clear</button>
+              <button class="secondary" disabled id="clearQueueButton" type="button">
+                <i class="icon" data-lucide="trash-2"></i>
+                Clear
+              </button>
             </div>
             <ol aria-live="polite" id="queueList"></ol>
           </article>

@@ -47,9 +47,8 @@
 }
 
 body {
-  width: 720px;
-  height: 720px;
-  max-width: 720px;
+  width: 100%;
+  min-height: 100vh;
   margin: 0;
   color: var(--text);
   background: var(--base);
@@ -59,7 +58,7 @@ body {
   display: grid;
   grid-template-rows: 38px 64px minmax(0, 1fr) 40px;
   gap: 10px;
-  height: 720px;
+  min-height: 100vh;
   padding: 12px;
   background: var(--base);
 }
@@ -433,16 +432,24 @@ input.connection-error {
 .actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
+}
+
+.actions button {
+  white-space: nowrap;
 }
 
 button {
   min-height: 32px;
   display: inline-flex;
+  position: relative;
   align-items: center;
   justify-content: center;
   gap: 7px;
+  overflow: hidden;
+  isolation: isolate;
   border: 1px solid transparent;
   border-radius: var(--radius);
   padding: 7px 11px;
@@ -450,6 +457,29 @@ button {
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+}
+
+.button-ripple {
+  position: absolute;
+  z-index: 1;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 28%);
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  animation: button-ripple 420ms ease-out forwards;
+}
+
+@keyframes button-ripple {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button-ripple {
+    animation-duration: 1ms;
+  }
 }
 
 button:disabled {
@@ -603,5 +633,43 @@ textarea:focus-visible {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 520px) {
+  .shell {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .header {
+    gap: 8px;
+  }
+
+  .header-actions {
+    gap: 4px;
+  }
+
+  .token-feedback span {
+    display: none;
+  }
+
+  .menu-item {
+    padding: 8px;
+  }
+
+  .menu-item small {
+    display: none;
+  }
+
+  .grid,
+  .locator-choices,
+  .creation-options,
+  .input-action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .test-button {
+    width: 100%;
   }
 }

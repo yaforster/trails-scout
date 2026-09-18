@@ -67,6 +67,7 @@ export function getPopupElements() {
     elementTypeInput: requiredSelect<ElementType>('elementType'),
     elementLabelInput: requiredInput('elementLabel'),
     loginButton: requiredButton('loginButton'),
+    loginFeedback: requiredElement<HTMLDivElement>('loginFeedback'),
     showTokenButton: requiredButton('showTokenButton'),
     showTokenIcon: requiredElement<HTMLElement>('showTokenIcon'),
     showTokenLabel: requiredElement<HTMLSpanElement>('showTokenLabel'),

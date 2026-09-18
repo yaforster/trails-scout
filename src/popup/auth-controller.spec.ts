@@ -22,6 +22,7 @@ function createHarness() {
         <input id="clientId" value=" trails-demo " />
         <input id="clientSecret" value="client-secret" />
         <button id="loginButton"></button>
+        <div id="loginFeedback"></div>
     `;
 
   const tokenSession = new TokenSession();
@@ -70,6 +71,7 @@ function createHarness() {
       clientIdInput: document.getElementById('clientId') as HTMLInputElement,
       clientSecretInput: document.getElementById('clientSecret') as HTMLInputElement,
       loginButton: document.getElementById('loginButton') as HTMLButtonElement,
+      loginFeedback: document.getElementById('loginFeedback') as HTMLDivElement,
     },
     {
       minimumRefreshDelayMs: 100,
@@ -92,6 +94,8 @@ function createHarness() {
     controller,
     fetchToken,
     loginButton: document.getElementById('loginButton') as HTMLButtonElement,
+    keycloakUrlInput: document.getElementById('keycloakUrl') as HTMLInputElement,
+    loginFeedback: document.getElementById('loginFeedback') as HTMLDivElement,
     refreshLoginState,
     refreshTabAvailability,
     resourceController,
@@ -180,8 +184,14 @@ describe('auth controller', () => {
   });
 
   it('shows server-provided login errors', async () => {
-    const { controller, fetchToken, resourceController, saveSettings, tokenPanelController } =
-      createHarness();
+    const {
+      controller,
+      fetchToken,
+      loginFeedback,
+      resourceController,
+      saveSettings,
+      tokenPanelController,
+    } = createHarness();
     fetchToken.mockResolvedValueOnce(
       jsonResponse({ error_description: 'Invalid credentials.' }, 401),
     );
@@ -192,8 +202,24 @@ describe('auth controller', () => {
       'Invalid credentials.',
       'error',
     );
+    expect(loginFeedback.classList.contains('error')).toBe(true);
+    expect(loginFeedback.textContent).toBe('Invalid credentials.');
     expect(saveSettings).not.toHaveBeenCalled();
     expect(resourceController.loadApplicationStages).not.toHaveBeenCalled();
+  });
+
+  it('shows an inline Keycloak URL error when token fetching fails', async () => {
+    const { controller, fetchToken, keycloakUrlInput, loginFeedback } = createHarness();
+    fetchToken.mockRejectedValueOnce(new Error('Network failed.'));
+
+    await controller.login();
+
+    expect(loginFeedback.classList.contains('error')).toBe(true);
+    expect(loginFeedback.textContent).toBe(
+      'Could not reach Keycloak. Check the token endpoint URL and network connection.',
+    );
+    expect(keycloakUrlInput.classList.contains('connection-error')).toBe(true);
+    expect(keycloakUrlInput.getAttribute('aria-invalid')).toBe('true');
   });
 
   it('refreshes an existing refresh token', async () => {

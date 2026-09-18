@@ -74,6 +74,7 @@ export function startPopup(): void {
     elementTypeInput,
     elementLabelInput,
     loginButton,
+    loginFeedback,
     showTokenButton,
     showTokenIcon,
     showTokenLabel,
@@ -253,6 +254,7 @@ export function startPopup(): void {
       clientIdInput,
       clientSecretInput,
       loginButton,
+      loginFeedback,
     },
     {
       minimumRefreshDelayMs,

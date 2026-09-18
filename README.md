@@ -30,7 +30,19 @@ Create a stable build:
 npm run build
 ```
 
-Both commands write extension files to `dist`. Load `dist` as an unpacked extension from Chrome's or Edge's extensions page with developer mode enabled.
+Build Chrome or Edge extension:
+
+```bash
+npm run build
+```
+
+Build Firefox extension:
+
+```bash
+npm run build:firefox
+```
+
+Chrome and Edge output goes to `dist`; Firefox output goes to `dist-firefox`. Load matching directory as an unpacked extension with developer mode enabled. Toolbar button opens Trails Scout in Chrome's side panel or Firefox's sidebar.
 
 ## Connection
 
@@ -47,11 +59,11 @@ Trails URL, Keycloak endpoint, client ID, optional client secret, selected targe
 
 ## Screenshots
 
-After locator validation, Scout can capture the active tab, scroll to the element, and crop a small-margin screenshot around it. The image stays in popup memory until upload and may contain sensitive content.
+After locator validation, Scout can capture the active tab, scroll to the element, and crop a small-margin screenshot around it. The image stays in side-panel memory until upload and may contain sensitive content.
 
 ## Capture queue
 
-The Capture page can queue multiple uniquely validated elements for the selected application and stage. Queue entries remain in popup memory only. Creation runs sequentially; a failed entry and all remaining entries stay available for retry. Changing the target requires confirmation and clears the queue. Queue entries do not capture or upload screenshots.
+The Capture page can queue multiple uniquely validated elements for the selected application and stage. Queue entries remain in side-panel memory only. Creation runs sequentially; a failed entry and all remaining entries stay available for retry. Changing the target requires confirmation and clears the queue. Queue entries do not capture or upload screenshots.
 
 ## Useful commands
 

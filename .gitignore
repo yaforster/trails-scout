@@ -11,6 +11,7 @@ yarn-error.log*
 
 .vscode/*
 /dist/
+/dist-firefox/
 .idea/
 *.iml
 .DS_Store

@@ -2,17 +2,21 @@
   "manifest_version": 3,
   "name": "Trails Inspector",
   "version": "0.1.0",
-  "permissions": ["activeTab", "scripting", "sidePanel", "tabs", "storage"],
+  "permissions": ["activeTab", "scripting", "tabs", "storage"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_title": "Open Trails Scout"
   },
   "background": {
-    "service_worker": "src/background-chrome.ts",
+    "scripts": ["src/background-firefox.ts"],
     "type": "module"
   },
   "side_panel": {
     "default_path": "src/popup/index.html"
+  },
+  "sidebar_action": {
+    "default_panel": "src/popup/index.html",
+    "default_title": "Trails Scout"
   },
   "content_scripts": [
     {
