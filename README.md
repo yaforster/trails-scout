@@ -49,6 +49,10 @@ Trails URL, Keycloak endpoint, client ID, optional client secret, selected targe
 
 After locator validation, Scout can capture the active tab, scroll to the element, and crop a small-margin screenshot around it. The image stays in popup memory until upload and may contain sensitive content.
 
+## Capture queue
+
+The Capture page can queue multiple uniquely validated elements for the selected application and stage. Queue entries remain in popup memory only. Creation runs sequentially; a failed entry and all remaining entries stay available for retry. Changing the target requires confirmation and clears the queue. Queue entries do not capture or upload screenshots.
+
 ## Useful commands
 
 ```bash

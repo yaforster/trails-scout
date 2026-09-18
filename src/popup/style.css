@@ -48,7 +48,7 @@
 
 body {
   width: 720px;
-  height: 540px;
+  height: 720px;
   max-width: 720px;
   margin: 0;
   color: var(--text);
@@ -59,7 +59,7 @@ body {
   display: grid;
   grid-template-rows: 38px 64px minmax(0, 1fr) 40px;
   gap: 10px;
-  height: 540px;
+  height: 720px;
   padding: 12px;
   background: var(--base);
 }
@@ -258,6 +258,107 @@ h2 {
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+
+.creation-options {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  margin-top: 12px;
+  gap: 10px;
+}
+
+.creation-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--muted-surface) 45%, var(--panel));
+}
+
+.creation-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.creation-card h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.creation-card-icon {
+  color: var(--action);
+}
+
+.creation-action {
+  width: 100%;
+  margin-top: auto;
+}
+
+.queue-card {
+  border-color: color-mix(in srgb, var(--action) 35%, var(--border));
+}
+
+.queue-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.queue-heading h3 {
+  margin: 0;
+  font-size: 12px;
+}
+
+.queue-actions {
+  flex-wrap: wrap;
+}
+
+.queue-heading span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#queueList {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.queue-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.queue-item-details {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.queue-item-details span {
+  overflow-wrap: anywhere;
+}
+
+.queue-item.created {
+  border-color: var(--success);
+}
+
+.queue-item.failed {
+  border-color: var(--danger);
 }
 
 .screenshot-box h3 {

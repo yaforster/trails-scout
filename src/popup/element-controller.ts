@@ -1,4 +1,5 @@
 import { resolveResourceLink } from './api';
+import type { QueueCandidate, QueueItem, QueueTarget } from './queue-controller';
 import { locatorStringFor, toElementDefinition } from './token-utils';
 import type { LocatorValidationResult } from '../locator-selectors';
 import type {
@@ -60,6 +61,7 @@ export interface ElementController {
   copyLocator(): Promise<void>;
   getSelectedLocator(): SelectedLocator | null;
   getCurrentLocator(): { locatorType: LocatorType; locatorString: string } | null;
+  getQueueCandidate(target: QueueTarget | null): QueueCandidate | null;
   refreshSelectedLocator(): void;
   restoreSelectedLocator(locator: SelectedLocator | null): void;
   setSelectedLocator(locator: SelectedLocator): void;
@@ -68,6 +70,7 @@ export interface ElementController {
   editLocator(): void;
   handleLocatorInput(): void;
   retryScreenshotUpload(): Promise<void>;
+  createQueuedElement(item: QueueItem): Promise<void>;
 }
 
 export function createElementController(
@@ -146,26 +149,7 @@ export function createElementController(
     setStatus('Creating element in Trails...');
 
     try {
-      const existingElements = await getExistingElements();
-      const duplicate = existingElements.find(
-        (element) =>
-          !element.retired &&
-          element.locatorType === definition.locatorType &&
-          element.locatorString === definition.locatorString,
-      );
-      if (duplicate) {
-        setStatus(
-          `Element already exists: ${duplicate.label ?? 'Unnamed'} (${duplicate.type ?? 'unknown'}).`,
-          'error',
-        );
-        return;
-      }
-      await saveSettings();
-      const createdElement = (await putElement(
-        createElementHref,
-        definition,
-        getAccessToken(),
-      )) as PersistedElement;
+      const createdElement = await submitDefinition(definition, createElementHref);
       creationComplete = true;
       const screenshot = getScreenshot();
       if (!screenshot) {
@@ -195,11 +179,47 @@ export function createElementController(
         setStatus(`Element created; screenshot upload failed: ${String(error)}`, 'error');
       }
     } catch (error) {
-      setStatus(String(error), 'error');
+      setStatus(error instanceof DuplicateElementError ? error.message : String(error), 'error');
     } finally {
       requestActive = false;
       refreshCreateAvailability();
     }
+  }
+
+  async function createQueuedElement(item: QueueItem): Promise<void> {
+    const currentApplicationId = getSelectedApplicationId();
+    const currentStageId = getSelectedStageId();
+    if (
+      currentApplicationId !== item.target.applicationId ||
+      currentStageId !== item.target.stageId
+    ) {
+      throw new Error('Queued element target no longer matches the selected target.');
+    }
+    const createElementHref = getCreateElementHref();
+    if (!createElementHref) {
+      throw new Error('Trails service does not advertise element creation.');
+    }
+    await submitDefinition(item.definition, createElementHref);
+  }
+
+  async function submitDefinition(
+    definition: ElementDefinition,
+    createElementHref: string,
+  ): Promise<PersistedElement> {
+    const existingElements = await getExistingElements();
+    const duplicate = existingElements.find(
+      (element) =>
+        !element.retired &&
+        element.locatorType === definition.locatorType &&
+        element.locatorString === definition.locatorString,
+    );
+    if (duplicate) {
+      throw new DuplicateElementError(
+        `Element already exists: ${duplicate.label ?? 'Unnamed'} (${duplicate.type ?? 'unknown'}).`,
+      );
+    }
+    await saveSettings();
+    return (await putElement(createElementHref, definition, getAccessToken())) as PersistedElement;
   }
 
   async function copyLocator(): Promise<void> {
@@ -244,6 +264,24 @@ export function createElementController(
     return locatorString
       ? { locatorType: locatorTypeInput.value as LocatorType, locatorString }
       : null;
+  }
+
+  function getQueueCandidate(target: QueueTarget | null): QueueCandidate | null {
+    if (
+      !target ||
+      !validation ||
+      validation.status !== 'unique' ||
+      !isCurrentValidation(validation)
+    ) {
+      return null;
+    }
+    const result = toElementDefinition(
+      selectedLocator,
+      locatorTypeInput.value as LocatorType,
+      elementTypeInput.value as ElementType,
+      elementLabelInput.value,
+    );
+    return result.valid ? { target, definition: result.definition, validation } : null;
   }
 
   function refreshSelectedLocator(): void {
@@ -397,6 +435,7 @@ export function createElementController(
     createElement,
     getSelectedLocator,
     getCurrentLocator,
+    getQueueCandidate,
     refreshSelectedLocator,
     restoreSelectedLocator,
     setSelectedLocator,
@@ -406,5 +445,8 @@ export function createElementController(
     editLocator,
     handleLocatorInput,
     retryScreenshotUpload,
+    createQueuedElement,
   };
 }
+
+class DuplicateElementError extends Error {}

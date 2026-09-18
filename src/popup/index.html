@@ -334,12 +334,41 @@
           <span aria-live="polite" class="field-feedback" id="screenshotFeedback"></span>
         </section>
 
-        <div class="actions">
-          <button class="primary" disabled id="createElementButton" type="button">
-            <i class="icon" data-lucide="send"></i>
-            Create element
-          </button>
-        </div>
+        <section aria-label="Element creation choices" class="creation-options">
+          <article class="creation-card">
+            <div class="creation-card-heading">
+              <div>
+                <h3>Create one element</h3>
+                <p class="help-text">Create the currently validated element immediately.</p>
+              </div>
+              <i class="creation-card-icon icon" data-lucide="send"></i>
+            </div>
+            <button class="primary creation-action" disabled id="createElementButton" type="button">
+              Create element
+            </button>
+          </article>
+
+          <article class="creation-card queue-card">
+            <div class="creation-card-heading">
+              <div>
+                <div class="queue-heading">
+                  <h3 id="queueHeading">Capture queue</h3>
+                  <span id="queueCount">0 queued</span>
+                </div>
+                <p class="help-text">Collect validated elements, then create them sequentially.</p>
+              </div>
+              <i class="creation-card-icon icon" data-lucide="list-plus"></i>
+            </div>
+            <div class="actions queue-actions">
+              <button class="secondary" id="addToQueueButton" type="button">Add to queue</button>
+              <button class="primary" disabled id="createQueueButton" type="button">
+                Create queued
+              </button>
+              <button class="secondary" disabled id="clearQueueButton" type="button">Clear</button>
+            </div>
+            <ol aria-live="polite" id="queueList"></ol>
+          </article>
+        </section>
       </section>
 
       <div class="status" id="status">Pick a locator or connect to Trails.</div>

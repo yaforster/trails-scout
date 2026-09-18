@@ -15,6 +15,7 @@ import { createConnectionHealth } from './connection-health';
 import { createConnectionSettings } from './connection-settings';
 import { createResourceController } from './resource-controller';
 import { createScreenshotController } from './screenshot-controller';
+import { createQueueController } from './queue-controller';
 import { createSettingsMenu } from './settings-menu';
 import { createTabController } from './tabs';
 import { createTokenPanelController } from './token-panel-controller';
@@ -30,6 +31,7 @@ export function startPopup(): void {
   let connectionSettings: ReturnType<typeof createConnectionSettings>;
   let elementController: ReturnType<typeof createElementController>;
   let screenshotController: ReturnType<typeof createScreenshotController>;
+  let queueController: ReturnType<typeof createQueueController>;
 
   const {
     trailsServiceUrlInput,
@@ -55,6 +57,11 @@ export function startPopup(): void {
     locatorXpathFeedback,
     copyLocatorButton,
     copyLocatorFeedback,
+    addToQueueButton,
+    createQueueButton,
+    clearQueueButton,
+    queueCount,
+    queueList,
     captureScreenshotButton,
     replaceScreenshotButton,
     removeScreenshotButton,
@@ -150,6 +157,7 @@ export function startPopup(): void {
       saveSettings,
       setStatus,
       refreshTabAvailability,
+      beforeTargetChange: () => queueController?.confirmTargetChange() ?? true,
     },
   );
   connectionSettings = createConnectionSettings(
@@ -219,6 +227,21 @@ export function startPopup(): void {
       clearScreenshot: screenshotController.clear,
       uploadScreenshot: uploadElementScreenshot,
       saveSettings,
+      setStatus,
+    },
+  );
+  queueController = createQueueController(
+    {
+      addButton: addToQueueButton,
+      createButton: createQueueButton,
+      clearButton: clearQueueButton,
+      count: queueCount,
+      list: queueList,
+    },
+    {
+      getCandidate: () =>
+        elementController.getQueueCandidate(resourceController.getTargetContext()),
+      createElement: elementController.createQueuedElement,
       setStatus,
     },
   );

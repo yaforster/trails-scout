@@ -1,5 +1,6 @@
 import { resolveResourceLink } from './api';
 import type { ApplicationResource, ElementResource, StageResource, StatusType } from './types';
+import type { QueueTarget } from './queue-controller';
 import { hasId, readErrorMessage, trimTrailingSlash } from './utils';
 
 export interface ApplicationStageEntry {
@@ -29,6 +30,7 @@ interface ResourceControllerDependencies {
   saveSettings(): Promise<void>;
   setStatus(message: string, type?: StatusType): void;
   refreshTabAvailability(): void;
+  beforeTargetChange?(): boolean;
 }
 
 export interface ResourceController {
@@ -42,6 +44,7 @@ export interface ResourceController {
   getSelectedStageId(): string | null;
   getCreateElementHref(): string | null;
   getExistingElements(): Promise<ElementResource[]>;
+  getTargetContext(): QueueTarget | null;
 }
 
 export function createResourceController(
@@ -51,6 +54,7 @@ export function createResourceController(
   let selectedApplicationId: string | null = null;
   let selectedStageId: string | null = null;
   let applicationStageCache: ApplicationStageEntry[] = [];
+  let suppressTargetChangeGuard = false;
 
   const { trailsServiceUrlInput, applicationSelect, stageSelect, refreshResourcesButton } =
     elements;
@@ -130,12 +134,32 @@ export function createResourceController(
   }
 
   function selectApplicationResource(): void {
+    if (
+      applicationSelect.value !== selectedApplicationId &&
+      !(dependencies.beforeTargetChange?.() ?? true)
+    ) {
+      applicationSelect.value = selectedApplicationId ?? '';
+      return;
+    }
     selectedApplicationId = applicationSelect.value || null;
-    renderStagesForSelectedApplication();
+    suppressTargetChangeGuard = true;
+    try {
+      renderStagesForSelectedApplication();
+    } finally {
+      suppressTargetChangeGuard = false;
+    }
     renderTargetSummary();
   }
 
   function selectStageResource(): void {
+    if (
+      !suppressTargetChangeGuard &&
+      stageSelect.value !== selectedStageId &&
+      !(dependencies.beforeTargetChange?.() ?? true)
+    ) {
+      stageSelect.value = selectedStageId ?? '';
+      return;
+    }
     selectedStageId = stageSelect.value || null;
     renderTargetSummary();
     refreshTabAvailability();
@@ -171,6 +195,23 @@ export function createResourceController(
       (entry) => String(entry.application.id) === selectedApplicationId,
     );
     return application?.createElementHref ?? null;
+  }
+
+  function getTargetContext(): QueueTarget | null {
+    const application = applicationStageCache.find(
+      (entry) => String(entry.application.id) === selectedApplicationId,
+    );
+    const stage = application?.stages.find((candidate) => String(candidate.id) === selectedStageId);
+    if (!application?.application.id || !stage?.id) {
+      return null;
+    }
+    return {
+      applicationId: String(application.application.id),
+      applicationLabel:
+        application.application.label ?? `Application ${application.application.id}`,
+      stageId: String(stage.id),
+      stageLabel: stage.label ?? `Stage ${stage.id}`,
+    };
   }
 
   async function getExistingElements(): Promise<ElementResource[]> {
@@ -318,5 +359,6 @@ export function createResourceController(
     getSelectedStageId,
     getCreateElementHref,
     getExistingElements,
+    getTargetContext,
   };
 }
