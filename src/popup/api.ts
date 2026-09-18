@@ -6,13 +6,13 @@ export async function fetchAllPages<T>(
   pageSize: number,
   accessToken: string | null,
 ): Promise<T[]> {
-  const firstPage = await fetchPage<T>(`${baseUrl}&page=0&size=${pageSize}`, accessToken);
-  const totalPages = firstPage.totalPages ?? 1;
-  const items = [...(firstPage.items ?? [])];
+  const firstPage = await fetchPage<T>(buildPageUrl(baseUrl, 0, pageSize), accessToken);
+  const totalPages = firstPage.totalPages;
+  const items = [...firstPage.items];
 
   for (let page = 1; page < totalPages; page++) {
-    const nextPage = await fetchPage<T>(`${baseUrl}&page=${page}&size=${pageSize}`, accessToken);
-    items.push(...(nextPage.items ?? []));
+    const nextPage = await fetchPage<T>(buildPageUrl(baseUrl, page, pageSize), accessToken);
+    items.push(...nextPage.items);
   }
 
   return items;
@@ -66,7 +66,32 @@ async function fetchPage<T>(url: string, accessToken: string | null): Promise<Pa
     throw new Error(readErrorMessage(result, 'Resource loading failed.'));
   }
 
+  if (!isPagedResource<T>(result)) {
+    throw new Error('Resource loading failed: malformed paged response.');
+  }
+
   return result;
+}
+
+function buildPageUrl(baseUrl: string, page: number, pageSize: number): string {
+  const url = new URL(baseUrl);
+  url.searchParams.set('page', String(page));
+  url.searchParams.set('size', String(pageSize));
+  return url.toString();
+}
+
+function isPagedResource<T>(value: unknown): value is PagedResource<T> {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const resource = value as { items?: unknown; totalPages?: unknown };
+  return (
+    Array.isArray(resource.items) &&
+    typeof resource.totalPages === 'number' &&
+    Number.isInteger(resource.totalPages) &&
+    resource.totalPages >= 1
+  );
 }
 
 function buildJsonHeaders(accessToken: string | null): HeadersInit {

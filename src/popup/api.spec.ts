@@ -93,6 +93,38 @@ describe('popup api', () => {
       );
     });
 
+    it('adds pagination to a URL without query parameters', async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValue(jsonResponse<PagedResource<string>>({ totalPages: 1, items: [] }));
+
+      await fetchAllPages<string>('https://trails.local/api/resources', 25, null);
+
+      expect(fetchSpy).toHaveBeenCalledWith('https://trails.local/api/resources?page=0&size=25', {
+        headers: {},
+      });
+    });
+
+    it('replaces existing pagination parameters', async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValue(jsonResponse<PagedResource<string>>({ totalPages: 1, items: [] }));
+
+      await fetchAllPages<string>('https://trails.local/api/resources?page=9&size=2', 25, null);
+
+      expect(fetchSpy).toHaveBeenCalledWith('https://trails.local/api/resources?page=0&size=25', {
+        headers: {},
+      });
+    });
+
+    it('rejects malformed page responses', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ items: 'not-an-array' }));
+
+      await expect(
+        fetchAllPages<string>('https://trails.local/api/resources', 25, null),
+      ).rejects.toThrow('malformed paged response');
+    });
+
     it('throws the server-provided error message when page loading fails', async () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(
         jsonResponse(

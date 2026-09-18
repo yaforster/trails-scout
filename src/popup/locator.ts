@@ -47,6 +47,7 @@ async function sendStartInspectorMessage(tabId: number): Promise<void> {
 
 async function startInjectedInspector(tabId: number): Promise<void> {
   try {
+    // Chrome serializes func; injected inspector cannot import popup modules here.
     await chrome.scripting.executeScript({
       target: { tabId },
       func: injectedInspector,
