@@ -214,12 +214,13 @@
           <h2>Application and stage</h2>
           <button
             aria-label="Refresh applications and stages"
-            class="secondary icon-button"
+            class="secondary"
             disabled
             id="refreshResourcesButton"
             type="button"
           >
             <i class="icon" data-lucide="refresh-cw"></i>
+            <span>Refresh</span>
           </button>
         </div>
 
@@ -237,6 +238,7 @@
             </select>
           </div>
         </div>
+        <p aria-live="polite" class="help-text" id="targetSummary">Choose application and stage.</p>
       </section>
 
       <section
@@ -253,6 +255,13 @@
             Pick locator
           </button>
         </div>
+
+        <p aria-live="polite" class="target-summary" id="elementTargetSummary">
+          Choose application and stage before capture.
+        </p>
+        <p aria-live="polite" class="help-text" id="captureBlocker">
+          Select application and stage first.
+        </p>
 
         <div class="grid">
           <div>
@@ -273,9 +282,35 @@
 
         <label for="locatorOutput">Locator</label>
         <textarea id="locatorOutput" readonly></textarea>
+        <div class="actions locator-actions">
+          <button class="secondary" id="editLocatorButton" type="button">Edit locator</button>
+          <button class="secondary" id="validateLocatorButton" type="button">
+            Validate locator
+          </button>
+          <span aria-live="polite" class="field-feedback" id="locatorValidationFeedback"></span>
+        </div>
+        <div class="locator-choices">
+          <div>
+            <label for="locatorCssOutput">CSS locator (read-only)</label>
+            <input id="locatorCssOutput" readonly type="text" />
+            <span aria-live="polite" class="field-feedback" id="locatorCssFeedback"></span>
+          </div>
+          <div>
+            <label for="locatorXpathOutput">XPath locator (read-only)</label>
+            <input id="locatorXpathOutput" readonly type="text" />
+            <span aria-live="polite" class="field-feedback" id="locatorXpathFeedback"></span>
+          </div>
+        </div>
+        <div class="actions locator-actions">
+          <button class="secondary" id="copyLocatorButton" type="button">
+            <i class="icon" data-lucide="copy"></i>
+            Copy locator
+          </button>
+          <span aria-live="polite" class="field-feedback" id="copyLocatorFeedback"></span>
+        </div>
 
         <div class="actions">
-          <button class="primary" id="createElementButton" type="button">
+          <button class="primary" disabled id="createElementButton" type="button">
             <i class="icon" data-lucide="send"></i>
             Create element
           </button>

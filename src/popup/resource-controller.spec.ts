@@ -9,6 +9,8 @@ function createHarness(accessToken: string | null = 'access-token') {
         <select id="applicationSelect"></select>
         <select id="stageSelect"></select>
         <button id="refreshResourcesButton"></button>
+        <p id="targetSummary"></p>
+        <p id="elementTargetSummary"></p>
     `;
 
   const applicationSelect = document.getElementById('applicationSelect') as HTMLSelectElement;
@@ -16,6 +18,10 @@ function createHarness(accessToken: string | null = 'access-token') {
   const refreshResourcesButton = document.getElementById(
     'refreshResourcesButton',
   ) as HTMLButtonElement;
+  const targetSummary = document.getElementById('targetSummary') as HTMLParagraphElement;
+  const elementTargetSummary = document.getElementById(
+    'elementTargetSummary',
+  ) as HTMLParagraphElement;
   const fetchAllPages = vi.fn(
     async <T>(): Promise<T[]> =>
       [
@@ -54,6 +60,8 @@ function createHarness(accessToken: string | null = 'access-token') {
       applicationSelect,
       stageSelect,
       refreshResourcesButton,
+      targetSummary,
+      elementTargetSummary,
     },
     {
       pageSize: 50,
@@ -76,6 +84,8 @@ function createHarness(accessToken: string | null = 'access-token') {
     saveSettings,
     setStatus,
     stageSelect,
+    targetSummary,
+    elementTargetSummary,
   };
 }
 
@@ -104,8 +114,15 @@ describe('resource controller', () => {
   });
 
   it('loads applications and stages into selectable controls', async () => {
-    const { applicationSelect, controller, fetchAllPages, saveSettings, stageSelect } =
-      createHarness();
+    const {
+      applicationSelect,
+      controller,
+      elementTargetSummary,
+      fetchAllPages,
+      saveSettings,
+      stageSelect,
+      targetSummary,
+    } = createHarness();
 
     await controller.loadApplicationStages();
 
@@ -125,6 +142,8 @@ describe('resource controller', () => {
     expect(stageSelect.value).toBe('10');
     expect(controller.getSelectedApplicationId()).toBe('1');
     expect(controller.getSelectedStageId()).toBe('10');
+    expect(targetSummary.textContent).toBe('Target: Shop / Production');
+    expect(elementTargetSummary.textContent).toBe('Target: Shop / Production');
     expect(saveSettings).toHaveBeenCalled();
   });
 

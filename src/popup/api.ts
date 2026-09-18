@@ -32,7 +32,7 @@ export async function fetchAllPagesWithLinks<T>(
     links = { ...links, ...pageLinks };
 
     const nextHref = pageLinks.next?.href?.trim();
-    if (nextHref) {
+    if (nextHref && pageNumber + 1 < page.totalPages) {
       pageUrl = resolveLink(baseUrl, { href: nextHref }, 'next', 'GET');
       pageNumber += 1;
       continue;

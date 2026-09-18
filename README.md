@@ -15,7 +15,13 @@ npm ci
 Start a watch build:
 
 ```bash
-npm start
+npm ci
+```
+
+Then
+
+```bash
+npm run dev
 ```
 
 Create a stable build:
@@ -37,7 +43,7 @@ Enter values for these required fields in Scout:
 
 Enter a client secret only when using a confidential client. Public-client setups leave it empty.
 
-Connection values and tokens persist in browser-local extension storage. They are not source-controlled; do not put credentials or secrets in this repository.
+Trails URL, Keycloak endpoint, client ID, optional client secret, selected target, and session tokens persist in browser-local extension storage. Username and password are never stored. Values are not source-controlled; do not put credentials or secrets in this repository.
 
 ## Useful commands
 

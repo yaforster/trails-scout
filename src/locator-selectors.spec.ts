@@ -6,6 +6,7 @@ import {
   isInspectorMessage,
   looksGenerated,
   toSelectedElementMessage,
+  validateLocatorInDocument,
 } from './locator-selectors';
 
 describe('locator selectors', () => {
@@ -19,6 +20,39 @@ describe('locator selectors', () => {
     const result = generateCssSelector(document.getElementById('checkout')!);
 
     expect(result).toBe('#checkout');
+  });
+
+  it('reports unique, multiple, empty, and invalid locator results safely', () => {
+    document.body.innerHTML = `<button id="one"></button><button class="many"></button><button class="many"></button>`;
+
+    expect(
+      validateLocatorInDocument({
+        requestId: '1',
+        locatorType: 'CSS',
+        locatorString: '#one',
+      }),
+    ).toMatchObject({ status: 'unique', matchCount: 1 });
+    expect(
+      validateLocatorInDocument({
+        requestId: '2',
+        locatorType: 'CSS',
+        locatorString: '.many',
+      }),
+    ).toMatchObject({ status: 'multiple', matchCount: 2 });
+    expect(
+      validateLocatorInDocument({
+        requestId: '3',
+        locatorType: 'XPATH',
+        locatorString: '//input',
+      }),
+    ).toMatchObject({ status: 'no-match', matchCount: 0 });
+    expect(
+      validateLocatorInDocument({
+        requestId: '4',
+        locatorType: 'CSS',
+        locatorString: '[',
+      }),
+    ).toMatchObject({ status: 'invalid', matchCount: 0 });
   });
 
   it('uses stable attributes before structural selectors', () => {

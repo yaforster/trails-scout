@@ -92,4 +92,26 @@ describe('injected inspector', () => {
     expect(storageSet).not.toHaveBeenCalled();
     expect(document.documentElement.querySelector('div')).toBeNull();
   });
+
+  it('validates CSS and XPath without evaluating arbitrary code', () => {
+    mockChrome();
+    document.body.innerHTML = `<button id="checkout"></button>`;
+
+    expect(
+      injectedInspector({
+        type: 'TRAILS_VALIDATE_LOCATOR',
+        requestId: 'css',
+        locatorType: 'CSS',
+        locatorString: '#checkout',
+      }),
+    ).toMatchObject({ status: 'unique', matchCount: 1 });
+    expect(
+      injectedInspector({
+        type: 'TRAILS_VALIDATE_LOCATOR',
+        requestId: 'xpath',
+        locatorType: 'XPATH',
+        locatorString: '//*[@id="checkout"]',
+      }),
+    ).toMatchObject({ status: 'unique', matchCount: 1 });
+  });
 });

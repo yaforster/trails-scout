@@ -1,5 +1,5 @@
 import { resolveResourceLink } from './api';
-import type { ApplicationResource, StageResource, StatusType } from './types';
+import type { ApplicationResource, ElementResource, StageResource, StatusType } from './types';
 import { hasId, readErrorMessage, trimTrailingSlash } from './utils';
 
 export interface ApplicationStageEntry {
@@ -13,6 +13,8 @@ interface ResourceControllerElements {
   applicationSelect: HTMLSelectElement;
   stageSelect: HTMLSelectElement;
   refreshResourcesButton: HTMLButtonElement;
+  targetSummary?: HTMLElement;
+  elementTargetSummary?: HTMLElement;
 }
 
 interface ResourceControllerDependencies {
@@ -39,6 +41,7 @@ export interface ResourceController {
   getSelectedApplicationId(): string | null;
   getSelectedStageId(): string | null;
   getCreateElementHref(): string | null;
+  getExistingElements(): Promise<ElementResource[]>;
 }
 
 export function createResourceController(
@@ -51,6 +54,7 @@ export function createResourceController(
 
   const { trailsServiceUrlInput, applicationSelect, stageSelect, refreshResourcesButton } =
     elements;
+  const { targetSummary, elementTargetSummary } = elements;
 
   const {
     pageSize,
@@ -107,9 +111,14 @@ export function createResourceController(
       renderApplications();
       refreshResourcesButton.disabled = false;
     } catch (error) {
+      applicationStageCache = [];
+      selectedApplicationId = null;
+      selectedStageId = null;
       setApplicationSelectMessage('Could not load applications');
       setStageSelectMessage('Could not load stages');
       refreshResourcesButton.disabled = false;
+      renderTargetSummary();
+      refreshTabAvailability();
       setStatus(readErrorMessage(error, 'Could not load applications and stages.'), 'error');
     }
   }
@@ -117,15 +126,18 @@ export function createResourceController(
   function restoreSelection(applicationId: string | null, stageId: string | null): void {
     selectedApplicationId = applicationId;
     selectedStageId = stageId;
+    renderTargetSummary();
   }
 
   function selectApplicationResource(): void {
     selectedApplicationId = applicationSelect.value || null;
     renderStagesForSelectedApplication();
+    renderTargetSummary();
   }
 
   function selectStageResource(): void {
     selectedStageId = stageSelect.value || null;
+    renderTargetSummary();
     refreshTabAvailability();
     saveSettings().catch((error) =>
       setStatus(`Could not save selected stage: ${String(error)}`, 'error'),
@@ -136,10 +148,14 @@ export function createResourceController(
     setApplicationSelectMessage('Fetch a token to load applications');
     setStageSelectMessage('Select an application first');
     refreshResourcesButton.disabled = true;
+    renderTargetSummary();
   }
 
   function clearCache(): void {
     applicationStageCache = [];
+    selectedApplicationId = null;
+    selectedStageId = null;
+    renderTargetSummary();
   }
 
   function getSelectedApplicationId(): string | null {
@@ -155,6 +171,31 @@ export function createResourceController(
       (entry) => String(entry.application.id) === selectedApplicationId,
     );
     return application?.createElementHref ?? null;
+  }
+
+  async function getExistingElements(): Promise<ElementResource[]> {
+    const entry = applicationStageCache.find(
+      (candidate) => String(candidate.application.id) === selectedApplicationId,
+    );
+    const stage = entry?.stages.find((candidate) => String(candidate.id) === selectedStageId);
+    if (!stage) {
+      return [];
+    }
+    let elementsHref: string;
+    try {
+      elementsHref = resolveResourceLink(
+        trimTrailingSlash(trailsServiceUrlInput.value),
+        stage,
+        'elements',
+        'GET',
+      );
+    } catch (error) {
+      if (String(error).includes('is unavailable')) {
+        return [];
+      }
+      throw error;
+    }
+    return fetchAllPages<ElementResource>(elementsHref, pageSize, getAccessToken());
   }
 
   function renderApplications(): void {
@@ -182,6 +223,7 @@ export function createResourceController(
       setApplicationSelectMessage('No applications with stages found');
       setStageSelectMessage('Select an application first');
       refreshTabAvailability();
+      renderTargetSummary();
       return;
     }
 
@@ -207,6 +249,7 @@ export function createResourceController(
       saveSettings().catch((error) =>
         setStatus(`Could not save selected application: ${String(error)}`, 'error'),
       );
+      renderTargetSummary();
       return;
     }
 
@@ -225,6 +268,27 @@ export function createResourceController(
       ? (selectedStageId ?? stageSelect.options[0].value)
       : stageSelect.options[0].value;
     selectStageResource();
+  }
+
+  function renderTargetSummary(): void {
+    const selectedApplication = applicationStageCache.find(
+      (entry) => String(entry.application.id) === selectedApplicationId,
+    );
+    const selectedStage = selectedApplication?.stages.find(
+      (stage) => String(stage.id) === selectedStageId,
+    );
+    const applicationLabel = selectedApplication?.application.label ?? selectedApplicationId;
+    const stageLabel = selectedStage?.label ?? selectedStageId;
+    const summary =
+      applicationLabel && stageLabel
+        ? `Target: ${applicationLabel} / ${stageLabel}`
+        : 'Choose application and stage.';
+    if (targetSummary) {
+      targetSummary.textContent = summary;
+    }
+    if (elementTargetSummary) {
+      elementTargetSummary.textContent = summary;
+    }
   }
 
   function setApplicationSelectMessage(message: string): void {
@@ -253,5 +317,6 @@ export function createResourceController(
     getSelectedApplicationId,
     getSelectedStageId,
     getCreateElementHref,
+    getExistingElements,
   };
 }

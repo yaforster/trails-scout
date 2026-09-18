@@ -15,6 +15,7 @@ function createHarness(
     applicationId: '7',
     stageId: '8',
   },
+  existingElements: object[] = [],
 ) {
   document.body.innerHTML = `
         <input id="trailsServiceUrl" value=" http://localhost:8080/ " />
@@ -23,6 +24,15 @@ function createHarness(
             <option value="XPATH">XPath</option>
         </select>
         <textarea id="locatorOutput"></textarea>
+        <input id="locatorCssOutput" />
+        <input id="locatorXpathOutput" />
+        <button id="copyLocatorButton"></button>
+        <span id="copyLocatorFeedback"></span>
+        <button id="editLocatorButton"></button>
+        <button id="validateLocatorButton"></button>
+        <span id="locatorValidationFeedback"></span>
+        <span id="locatorCssFeedback"></span>
+        <span id="locatorXpathFeedback"></span>
         <select id="elementType">
             <option value="BUTTON">BUTTON</option>
         </select>
@@ -33,11 +43,23 @@ function createHarness(
   const putElement = vi.fn().mockResolvedValue({ id: 42 });
   const saveSettings = vi.fn().mockResolvedValue(undefined);
   const setStatus = vi.fn();
+  const validateLocator = vi.fn().mockResolvedValue({
+    type: 'TRAILS_LOCATOR_VALIDATED',
+    requestId: 'test',
+    locatorType: 'CSS',
+    locatorString: '#checkout',
+    matchCount: 1,
+    status: 'unique',
+    message: 'One matching element found.',
+  });
   const controller = createElementController(
     {
       trailsServiceUrlInput: document.getElementById('trailsServiceUrl') as HTMLInputElement,
       locatorTypeInput: document.getElementById('locatorType') as HTMLSelectElement,
       locatorOutput: document.getElementById('locatorOutput') as HTMLTextAreaElement,
+      locatorCssOutput: document.getElementById('locatorCssOutput') as HTMLInputElement,
+      locatorXpathOutput: document.getElementById('locatorXpathOutput') as HTMLInputElement,
+      copyLocatorFeedback: document.getElementById('copyLocatorFeedback') as HTMLSpanElement,
       elementTypeInput: document.getElementById('elementType') as HTMLSelectElement,
       elementLabelInput: document.getElementById('elementLabel') as HTMLInputElement,
       createElementButton: document.getElementById('createElementButton') as HTMLButtonElement,
@@ -50,6 +72,8 @@ function createHarness(
       putElement,
       saveSettings,
       setStatus,
+      validateLocator,
+      getExistingElements: vi.fn().mockResolvedValue(existingElements),
     },
   );
 
@@ -81,6 +105,34 @@ describe('element controller', () => {
     expect(locatorOutput.value).toBe(`//*[@id="checkout"]`);
   });
 
+  it('copies active locator only after clipboard resolves', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    const { controller, setStatus } = createHarness();
+    controller.setSelectedLocator(locator);
+
+    await controller.copyLocator();
+
+    expect(writeText).toHaveBeenCalledWith('#checkout');
+    expect(setStatus).not.toHaveBeenCalled();
+  });
+
+  it('reports clipboard failures', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error('Denied.')) },
+    });
+    const { controller } = createHarness();
+    controller.setSelectedLocator(locator);
+
+    await controller.copyLocator();
+
+    expect(document.getElementById('copyLocatorFeedback')?.textContent).toBe('Error: Denied.');
+  });
+
   it('restores a selected locator without forcing a render', () => {
     const { controller, locatorOutput } = createHarness();
 
@@ -94,6 +146,7 @@ describe('element controller', () => {
     const { controller, createElementButton, putElement, saveSettings, setStatus } =
       createHarness();
     controller.setSelectedLocator(locator);
+    await controller.validateCurrentLocator();
 
     await controller.createElement();
 
@@ -136,11 +189,52 @@ describe('element controller', () => {
   it('reports element creation failures and re-enables the create button', async () => {
     const { controller, createElementButton, putElement, setStatus } = createHarness();
     controller.setSelectedLocator(locator);
+    await controller.validateCurrentLocator();
     putElement.mockRejectedValueOnce(new Error('Element already exists.'));
 
     await controller.createElement();
 
     expect(createElementButton.disabled).toBe(false);
     expect(setStatus).toHaveBeenLastCalledWith('Error: Element already exists.', 'error');
+  });
+
+  it('prevents duplicate create requests', async () => {
+    const { controller, putElement } = createHarness();
+    controller.setSelectedLocator(locator);
+    await controller.validateCurrentLocator();
+    let resolveRequest!: () => void;
+    putElement.mockReturnValueOnce(new Promise((resolve) => (resolveRequest = () => resolve({}))));
+
+    const first = controller.createElement();
+    const second = controller.createElement();
+    resolveRequest();
+    await Promise.all([first, second]);
+
+    expect(putElement).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks exact active locator duplicates before PUT', async () => {
+    const { controller, putElement, setStatus } = createHarness(
+      { applicationId: '7', stageId: '8' },
+      [
+        {
+          label: 'Existing checkout',
+          type: 'BUTTON',
+          locatorType: 'CSS',
+          locatorString: '#checkout',
+          retired: false,
+        },
+      ],
+    );
+    controller.setSelectedLocator(locator);
+    await controller.validateCurrentLocator();
+
+    await controller.createElement();
+
+    expect(putElement).not.toHaveBeenCalled();
+    expect(setStatus).toHaveBeenLastCalledWith(
+      'Element already exists: Existing checkout (BUTTON).',
+      'error',
+    );
   });
 });

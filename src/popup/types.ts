@@ -50,6 +50,16 @@ export interface PersistedElement {
   id?: number;
 }
 
+export interface ElementResource {
+  id?: number;
+  type?: ElementType;
+  label?: string;
+  locatorString?: string;
+  locatorType?: LocatorType;
+  retired?: boolean;
+  _links?: ResourceLinks;
+}
+
 export interface ApplicationResource {
   id?: number;
   label?: string;

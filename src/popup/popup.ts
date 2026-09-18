@@ -10,7 +10,7 @@ import {
 import { getPopupElements } from './dom';
 import { createElementController } from './element-controller';
 import { renderIcons } from './icons';
-import { startLocatorPicker } from './locator';
+import { startLocatorPicker, validateLocator } from './locator';
 import { createConnectionHealth } from './connection-health';
 import { createConnectionSettings } from './connection-settings';
 import { createResourceController } from './resource-controller';
@@ -21,12 +21,13 @@ import { TokenSession } from './token-session';
 import { createThemeController } from './theme-controller';
 import type { SelectedLocator } from './types';
 import { createStatusView } from './status-view';
-import { isSelectedLocatorMessage, storageGet } from './utils';
+import { isLocatorCancelledMessage, isSelectedLocatorMessage, storageGet } from './utils';
 
 export function startPopup(): void {
   const tokenSession = new TokenSession();
   let authController: AuthController;
   let connectionSettings: ReturnType<typeof createConnectionSettings>;
+  let elementController: ReturnType<typeof createElementController>;
 
   const {
     trailsServiceUrlInput,
@@ -38,10 +39,22 @@ export function startPopup(): void {
     applicationSelect,
     stageSelect,
     refreshResourcesButton,
+    targetSummary,
     testTrailsConnectionButton,
     trailsConnectionFeedback,
     locatorTypeInput,
     locatorOutput,
+    editLocatorButton,
+    validateLocatorButton,
+    locatorValidationFeedback,
+    locatorCssOutput,
+    locatorXpathOutput,
+    locatorCssFeedback,
+    locatorXpathFeedback,
+    copyLocatorButton,
+    copyLocatorFeedback,
+    elementTargetSummary,
+    captureBlocker,
     elementTypeInput,
     elementLabelInput,
     loginButton,
@@ -102,6 +115,8 @@ export function startPopup(): void {
       applicationSelect,
       stageSelect,
       refreshResourcesButton,
+      targetSummary,
+      elementTargetSummary,
     },
     {
       pageSize: resourcePageSize,
@@ -147,11 +162,19 @@ export function startPopup(): void {
         resourceController.getSelectedApplicationId() && resourceController.getSelectedStageId(),
       ),
   );
-  const elementController = createElementController(
+  elementController = createElementController(
     {
       trailsServiceUrlInput,
       locatorTypeInput,
       locatorOutput,
+      locatorValidationFeedback,
+      locatorCssFeedback,
+      locatorXpathFeedback,
+      editLocatorButton,
+      validateLocatorButton,
+      locatorCssOutput,
+      locatorXpathOutput,
+      copyLocatorFeedback,
       elementTypeInput,
       elementLabelInput,
       createElementButton,
@@ -159,8 +182,11 @@ export function startPopup(): void {
     {
       getSelectedApplicationId: resourceController.getSelectedApplicationId,
       getSelectedStageId: resourceController.getSelectedStageId,
+      getCreateElementHref: resourceController.getCreateElementHref,
       getAccessToken: () => tokenSession.accessToken,
       putElement,
+      validateLocator,
+      getExistingElements: resourceController.getExistingElements,
       saveSettings,
       setStatus,
     },
@@ -203,6 +229,7 @@ export function startPopup(): void {
     await restoreSettings();
     await restoreSelectedLocator();
     elementController.refreshSelectedLocator();
+    elementController.refreshCreateAvailability();
   }
 
   function renderElementTypes(): void {
@@ -227,10 +254,16 @@ export function startPopup(): void {
         setStatus(`Could not start locator picker: ${String(error)}`, 'error');
       });
     });
+    copyLocatorButton.addEventListener('click', elementController.copyLocator);
+    editLocatorButton.addEventListener('click', elementController.editLocator);
+    validateLocatorButton.addEventListener('click', elementController.validateCurrentLocator);
+    locatorOutput.addEventListener('input', elementController.handleLocatorInput);
     createElementButton.addEventListener('click', elementController.createElement);
     applicationSelect.addEventListener('change', resourceController.selectApplicationResource);
     stageSelect.addEventListener('change', resourceController.selectStageResource);
     locatorTypeInput.addEventListener('change', elementController.refreshSelectedLocator);
+    locatorTypeInput.addEventListener('change', elementController.refreshCreateAvailability);
+    elementLabelInput.addEventListener('input', elementController.refreshCreateAvailability);
     trailsServiceUrlInput.addEventListener('input', connectionHealth.clear);
 
     for (const input of [
@@ -253,6 +286,11 @@ export function startPopup(): void {
     }
 
     browser.runtime.onMessage.addListener((message: unknown) => {
+      if (isLocatorCancelledMessage(message)) {
+        setStatus('Picker cancelled.');
+        startInspectorButton.focus();
+        return;
+      }
       if (!isSelectedLocatorMessage(message)) {
         return;
       }
@@ -263,6 +301,7 @@ export function startPopup(): void {
         selectedAt: new Date().toISOString(),
       });
       setStatus('Locator selected.', 'success');
+      startInspectorButton.focus();
     });
   }
 
@@ -309,6 +348,12 @@ export function startPopup(): void {
 
   function refreshTabAvailability(): void {
     tabController.refreshAvailability();
+    elementController?.refreshCreateAvailability();
+    captureBlocker.textContent = tokenSession.accessToken
+      ? resourceController.getSelectedApplicationId() && resourceController.getSelectedStageId()
+        ? 'Target ready. Pick a page element.'
+        : 'Select application and stage first.'
+      : 'Connect to Trails first.';
   }
 
   function fetchToken(keycloakUrl: string, body: URLSearchParams): Promise<Response> {

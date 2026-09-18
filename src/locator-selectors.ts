@@ -2,6 +2,25 @@ export interface InspectorMessage {
   type: 'TRAILS_START_INSPECTOR';
 }
 
+export type LocatorValidationStatus = 'no-match' | 'unique' | 'multiple' | 'invalid';
+
+export interface ValidateLocatorMessage {
+  type: 'TRAILS_VALIDATE_LOCATOR';
+  requestId: string;
+  locatorType: 'CSS' | 'XPATH';
+  locatorString: string;
+}
+
+export interface LocatorValidationResult {
+  type: 'TRAILS_LOCATOR_VALIDATED';
+  requestId: string;
+  locatorType: 'CSS' | 'XPATH';
+  locatorString: string;
+  matchCount: number;
+  status: LocatorValidationStatus;
+  message: string;
+}
+
 export interface SelectedElementMessage {
   type: 'TRAILS_ELEMENT_SELECTED';
   cssSelector: string;
@@ -88,6 +107,57 @@ export function isInspectorMessage(message: unknown): message is InspectorMessag
   );
 }
 
+export function isValidateLocatorMessage(message: unknown): message is ValidateLocatorMessage {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    (message as Record<string, unknown>).type === 'TRAILS_VALIDATE_LOCATOR' &&
+    typeof (message as Record<string, unknown>).requestId === 'string' &&
+    ((message as Record<string, unknown>).locatorType === 'CSS' ||
+      (message as Record<string, unknown>).locatorType === 'XPATH') &&
+    typeof (message as Record<string, unknown>).locatorString === 'string'
+  );
+}
+
+export function validateLocatorInDocument(
+  request: Pick<ValidateLocatorMessage, 'requestId' | 'locatorType' | 'locatorString'>,
+  documentRef: Document = document,
+): LocatorValidationResult {
+  const locatorString = request.locatorString.trim();
+  try {
+    const matchCount =
+      request.locatorType === 'CSS'
+        ? documentRef.querySelectorAll(locatorString).length
+        : countXPathElements(documentRef, locatorString);
+    const status: LocatorValidationStatus =
+      matchCount === 0 ? 'no-match' : matchCount === 1 ? 'unique' : 'multiple';
+    return {
+      type: 'TRAILS_LOCATOR_VALIDATED',
+      requestId: request.requestId,
+      locatorType: request.locatorType,
+      locatorString: request.locatorString,
+      matchCount,
+      status,
+      message:
+        status === 'unique'
+          ? 'One matching element found.'
+          : status === 'multiple'
+            ? `${matchCount} matching elements found.`
+            : 'No matching element found.',
+    };
+  } catch {
+    return {
+      type: 'TRAILS_LOCATOR_VALIDATED',
+      requestId: request.requestId,
+      locatorType: request.locatorType,
+      locatorString: request.locatorString,
+      matchCount: 0,
+      status: 'invalid',
+      message: `Invalid ${request.locatorType} locator.`,
+    };
+  }
+}
+
 export function looksGenerated(className: string): boolean {
   return (
     className.length > 20 ||
@@ -159,4 +229,21 @@ function cssAttributeEscape(value: string): string {
 
 function xpathEscape(value: string): string {
   return value.replace(/"/g, '\\"');
+}
+
+function countXPathElements(documentRef: Document, locatorString: string): number {
+  const result = documentRef.evaluate(
+    locatorString,
+    documentRef,
+    null,
+    XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+    null,
+  );
+  let count = 0;
+  for (let index = 0; index < result.snapshotLength; index += 1) {
+    if (result.snapshotItem(index)?.nodeType === Node.ELEMENT_NODE) {
+      count += 1;
+    }
+  }
+  return count;
 }

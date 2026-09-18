@@ -2,7 +2,9 @@ import browser from 'webextension-polyfill';
 import {
   createSelectedElement,
   isInspectorMessage,
+  isValidateLocatorMessage,
   toSelectedElementMessage,
+  validateLocatorInDocument,
 } from './locator-selectors';
 
 let inspectorActive = false;
@@ -10,6 +12,9 @@ let hoveredElement: Element | null = null;
 let overlay: HTMLDivElement | null = null;
 
 browser.runtime.onMessage.addListener((message: unknown) => {
+  if (isValidateLocatorMessage(message)) {
+    return Promise.resolve(validateLocatorInDocument(message));
+  }
   if (isInspectorMessage(message)) {
     startInspector();
   }
@@ -99,6 +104,7 @@ function handleClick(event: MouseEvent): void {
 
 function handleKeyDown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
+    browser.runtime.sendMessage({ type: 'TRAILS_INSPECTOR_CANCELLED' }).catch(() => undefined);
     stopInspector();
   }
 }

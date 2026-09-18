@@ -43,6 +43,10 @@ export function isSelectedLocatorMessage(message: unknown): message is SelectedL
   );
 }
 
+export function isLocatorCancelledMessage(message: unknown): boolean {
+  return isRecord(message) && message.type === 'TRAILS_INSPECTOR_CANCELLED';
+}
+
 export function storageGet<T>(keys: string | string[]): Promise<T> {
   return browser.storage.local.get(keys) as Promise<T>;
 }

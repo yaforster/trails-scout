@@ -16,6 +16,10 @@ const inputIds = [
   'clientId',
   'clientSecret',
   'elementLabel',
+  'locatorCssOutput',
+  'locatorXpathOutput',
+  'locatorCssFeedback',
+  'locatorXpathFeedback',
 ];
 
 const selectIds = ['applicationSelect', 'stageSelect', 'locatorType', 'elementType'];
@@ -27,6 +31,9 @@ const buttonIds = [
   'showTokenButton',
   'startInspectorButton',
   'createElementButton',
+  'copyLocatorButton',
+  'editLocatorButton',
+  'validateLocatorButton',
   'authTab',
   'targetTab',
   'elementTab',
@@ -45,6 +52,11 @@ const divIds = [
   'settingsMenuContainer',
   'settingsMenu',
   'trailsConnectionFeedback',
+  'targetSummary',
+  'elementTargetSummary',
+  'captureBlocker',
+  'copyLocatorFeedback',
+  'locatorValidationFeedback',
 ];
 
 function renderPopupElements(): void {

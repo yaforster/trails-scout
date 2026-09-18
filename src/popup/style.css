@@ -370,6 +370,23 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
+.target-summary {
+  margin: 10px 0 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.locator-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.locator-actions {
+  min-height: 32px;
+}
+
 .field-feedback {
   min-height: 16px;
   margin-top: 5px;

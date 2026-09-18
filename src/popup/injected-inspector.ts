@@ -1,4 +1,44 @@
-export function injectedInspector(): void {
+export function injectedInspector(request?: {
+  type: 'TRAILS_VALIDATE_LOCATOR';
+  requestId: string;
+  locatorType: 'CSS' | 'XPATH';
+  locatorString: string;
+}): unknown {
+  if (request?.type === 'TRAILS_VALIDATE_LOCATOR') {
+    const locatorString = request.locatorString.trim();
+    try {
+      const matchCount =
+        request.locatorType === 'CSS'
+          ? document.querySelectorAll(locatorString).length
+          : countXPathElements(locatorString);
+      const status = matchCount === 0 ? 'no-match' : matchCount === 1 ? 'unique' : 'multiple';
+      return {
+        type: 'TRAILS_LOCATOR_VALIDATED',
+        requestId: request.requestId,
+        locatorType: request.locatorType,
+        locatorString: request.locatorString,
+        matchCount,
+        status,
+        message:
+          status === 'unique'
+            ? 'One matching element found.'
+            : status === 'multiple'
+              ? `${matchCount} matching elements found.`
+              : 'No matching element found.',
+      };
+    } catch {
+      return {
+        type: 'TRAILS_LOCATOR_VALIDATED',
+        requestId: request.requestId,
+        locatorType: request.locatorType,
+        locatorString: request.locatorString,
+        matchCount: 0,
+        status: 'invalid',
+        message: `Invalid ${request.locatorType} locator.`,
+      };
+    }
+  }
+
   type InspectorState = {
     active: boolean;
     hoveredElement: Element | null;
@@ -109,6 +149,7 @@ export function injectedInspector(): void {
 
   function handleKeyDown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
+      chrome.runtime.sendMessage({ type: 'TRAILS_INSPECTOR_CANCELLED' }).catch(() => undefined);
       stopInspector();
     }
   }
@@ -242,5 +283,22 @@ export function injectedInspector(): void {
 
   function xpathEscape(value: string): string {
     return value.replace(/"/g, '\\"');
+  }
+
+  function countXPathElements(locatorString: string): number {
+    const result = document.evaluate(
+      locatorString,
+      document,
+      null,
+      XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+      null,
+    );
+    let count = 0;
+    for (let index = 0; index < result.snapshotLength; index += 1) {
+      if (result.snapshotItem(index)?.nodeType === Node.ELEMENT_NODE) {
+        count += 1;
+      }
+    }
+    return count;
   }
 }

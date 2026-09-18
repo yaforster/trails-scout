@@ -68,7 +68,7 @@ describe('locator picker', () => {
     await startLocatorPicker(button, setStatus);
 
     expect(tabs.sendMessage).toHaveBeenCalledWith(7, { type: 'TRAILS_START_INSPECTOR' });
-    expect(setStatus).toHaveBeenCalledWith('Click an element in the page. Press Escape to cancel.');
+    expect(setStatus).toHaveBeenCalledWith('Picker active: click page element. Escape cancels.');
   });
 
   it('injects the inspector when the content script is unavailable', async () => {
