@@ -37,6 +37,7 @@ export function getPopupElements() {
     stageSelect: requiredSelect<string>('stageSelect'),
     refreshResourcesButton: requiredButton('refreshResourcesButton'),
     testTrailsConnectionButton: requiredButton('testTrailsConnectionButton'),
+    trailsConnectionFeedback: requiredElement<HTMLDivElement>('trailsConnectionFeedback'),
     locatorTypeInput: requiredSelect<LocatorType>('locatorType'),
     locatorOutput: requiredTextArea('locatorOutput'),
     elementTypeInput: requiredSelect<ElementType>('elementType'),

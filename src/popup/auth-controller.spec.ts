@@ -172,10 +172,7 @@ describe('auth controller', () => {
     });
     expect(tokenSession.accessToken).toBe('access-token');
     expect(tokenPanelController.setStatus).toHaveBeenCalledWith('Fetching token...', 'pending');
-    expect(tokenPanelController.setExpiringStatus).toHaveBeenCalledWith(
-      'Token fetched.',
-      'success',
-    );
+    expect(tokenPanelController.setExpiringStatus).toHaveBeenCalledWith('Connected', 'success');
     expect(saveSettings).toHaveBeenCalled();
     expect(resourceController.loadApplicationStages).toHaveBeenCalled();
     expect(refreshTabAvailability).toHaveBeenCalled();
@@ -213,7 +210,7 @@ describe('auth controller', () => {
       refreshTokenExpiresAt: 30_000,
     });
 
-    await controller.refreshAccessToken('Token refreshed.');
+    await controller.refreshAccessToken('Connected');
 
     expect(Object.fromEntries(fetchToken.mock.calls[0][1])).toEqual({
       grant_type: 'refresh_token',
@@ -227,10 +224,7 @@ describe('auth controller', () => {
       accessTokenExpiresAt: 61_000,
       refreshTokenExpiresAt: 121_000,
     });
-    expect(tokenPanelController.setExpiringStatus).toHaveBeenCalledWith(
-      'Token refreshed.',
-      'success',
-    );
+    expect(tokenPanelController.setExpiringStatus).toHaveBeenCalledWith('Connected', 'success');
     expect(resourceController.loadApplicationStages).toHaveBeenCalled();
   });
 
@@ -241,7 +235,7 @@ describe('auth controller', () => {
       refreshTokenExpiresAt: 500,
     });
 
-    await controller.refreshAccessToken('Token refreshed.');
+    await controller.refreshAccessToken('Connected');
 
     expect(fetchToken).not.toHaveBeenCalled();
     expect(tokenPanelController.setStatus).toHaveBeenCalledWith('Refresh expired.', 'error');
@@ -256,7 +250,7 @@ describe('auth controller', () => {
     });
     fetchToken.mockRejectedValueOnce(new Error('Network failed.'));
 
-    await controller.refreshAccessToken('Token refreshed.');
+    await controller.refreshAccessToken('Connected');
 
     expect(tokenPanelController.setExpiringStatus).toHaveBeenCalledWith(
       'Refresh retry scheduled.',
@@ -304,7 +298,7 @@ describe('auth controller', () => {
     expect(tokenPanelController.clearCountdown).toHaveBeenCalled();
     expect(tokenPanelController.clearOutput).toHaveBeenCalled();
     expect(tokenPanelController.setVisibility).toHaveBeenCalledWith(false);
-    expect(tokenPanelController.setStatus).toHaveBeenCalledWith('Token deleted.', 'success');
+    expect(tokenPanelController.setStatus).toHaveBeenCalledWith('Unavailable', 'error');
     expect(refreshTabAvailability).toHaveBeenCalled();
     expect(tabController.activate).toHaveBeenCalledWith('auth');
     expect(setStatus).toHaveBeenCalledWith('Stored token deleted.', 'success');

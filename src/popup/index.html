@@ -11,14 +11,14 @@
       <header class="header">
         <h1>Trails Scout</h1>
         <div class="header-actions">
-          <div aria-live="polite" class="token-feedback" id="tokenFeedback">
+          <div aria-live="polite" class="token-feedback visible unavailable" id="tokenFeedback">
             <i
               aria-hidden="true"
               class="token-feedback-icon"
               data-lucide="circle"
               id="tokenFeedbackIcon"
             ></i>
-            <span id="tokenFeedbackText"></span>
+            <span id="tokenFeedbackText">Unavailable</span>
           </div>
           <button
             aria-label="Switch to dark mode"
@@ -119,73 +119,88 @@
           <h2>Connection</h2>
         </div>
 
-        <label for="keycloakUrl">Keycloak token endpoint</label>
-        <input id="keycloakUrl" type="url" value="" />
-
-        <label for="trailsServiceUrl">Trails service URL</label>
-        <div class="input-action-row">
-          <input id="trailsServiceUrl" type="url" value="" />
-          <button
-            aria-label="Test Trails connection"
-            class="secondary square-button"
-            id="testTrailsConnectionButton"
-            type="button"
-          >
-            <i class="icon" data-lucide="cloud-check"></i>
-          </button>
-        </div>
-
-        <div class="grid">
-          <div>
-            <label for="username">Username</label>
-            <input
-              autocapitalize="off"
-              autocomplete="off"
-              data-lpignore="true"
-              data-1p-ignore
-              id="username"
-              spellcheck="false"
-              type="text"
-            />
+        <fieldset class="connection-group">
+          <legend>Trails service</legend>
+          <label for="trailsServiceUrl">Trails service URL</label>
+          <div class="input-action-row">
+            <input id="trailsServiceUrl" type="url" value="" />
+            <button
+              aria-label="Test Trails connection"
+              class="secondary test-button"
+              id="testTrailsConnectionButton"
+              type="button"
+            >
+              <i class="icon" data-lucide="cloud-check"></i>
+              <span>Test connection</span>
+            </button>
           </div>
-          <div>
-            <label for="password">Password</label>
-            <input
-              autocapitalize="off"
-              autocomplete="current-password"
-              id="password"
-              spellcheck="false"
-              type="password"
-            />
-          </div>
-        </div>
+          <div aria-live="polite" class="field-feedback" id="trailsConnectionFeedback"></div>
+        </fieldset>
 
-        <div class="grid">
-          <div>
-            <label for="clientId">Client ID</label>
-            <input id="clientId" type="text" value="" />
-          </div>
-          <div>
-            <label for="clientSecret">Client secret (if required)</label>
-            <input autocomplete="off" id="clientSecret" type="password" />
-          </div>
-        </div>
+        <fieldset class="connection-group">
+          <legend>Keycloak sign-in</legend>
+          <label for="keycloakUrl">Keycloak token endpoint</label>
+          <input id="keycloakUrl" type="url" value="" />
 
-        <div class="actions">
-          <button class="primary" disabled id="loginButton" type="button">
-            <i class="icon" data-lucide="log-in"></i>
-            Log in
-          </button>
-          <button class="secondary" id="showTokenButton" type="button">
-            <i class="icon" data-lucide="eye" id="showTokenIcon"></i>
-            <span id="showTokenLabel">Show token</span>
-          </button>
-        </div>
+          <div class="grid">
+            <div>
+              <label for="username">Username</label>
+              <input
+                autocapitalize="off"
+                autocomplete="off"
+                data-lpignore="true"
+                data-1p-ignore
+                id="username"
+                spellcheck="false"
+                type="text"
+              />
+            </div>
+            <div>
+              <label for="password">Password</label>
+              <input
+                autocapitalize="off"
+                autocomplete="current-password"
+                id="password"
+                spellcheck="false"
+                type="password"
+              />
+            </div>
+          </div>
 
-        <div class="token-box" id="tokenBox">
-          <label for="tokenOutput">Access token</label>
-          <textarea id="tokenOutput" readonly></textarea>
-        </div>
+          <div class="grid">
+            <div>
+              <label for="clientId">Client ID</label>
+              <input id="clientId" type="text" value="" />
+            </div>
+            <div>
+              <label for="clientSecret">Client secret (if required)</label>
+              <input autocomplete="off" id="clientSecret" type="password" />
+            </div>
+          </div>
+          <p class="help-text">Username and password are used for sign-in only and never saved.</p>
+        </fieldset>
+
+        <fieldset class="connection-group session-group">
+          <legend>Session</legend>
+          <p class="help-text">
+            Client secret and session tokens stay in browser-local extension storage.
+          </p>
+          <div class="actions">
+            <button class="primary" disabled id="loginButton" type="button">
+              <i class="icon" data-lucide="log-in"></i>
+              Log in
+            </button>
+            <button class="secondary" id="showTokenButton" type="button">
+              <i class="icon" data-lucide="eye" id="showTokenIcon"></i>
+              <span id="showTokenLabel">Show token</span>
+            </button>
+          </div>
+
+          <div class="token-box" id="tokenBox">
+            <label for="tokenOutput">Access token</label>
+            <textarea id="tokenOutput" readonly></textarea>
+          </div>
+        </fieldset>
       </section>
 
       <section

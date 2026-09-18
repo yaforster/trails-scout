@@ -227,6 +227,32 @@ h2 {
   margin-bottom: 0;
 }
 
+.connection-group {
+  min-width: 0;
+  margin: 0 0 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.connection-group:last-child {
+  margin-bottom: 0;
+}
+
+.connection-group legend {
+  padding: 0 5px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.help-text {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 label {
   display: block;
   margin: 8px 0 4px;
@@ -273,7 +299,7 @@ input.connection-error {
 
 .input-action-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
 }
@@ -340,6 +366,30 @@ textarea:focus-visible {
   padding: 7px;
 }
 
+.test-button {
+  white-space: nowrap;
+}
+
+.field-feedback {
+  min-height: 16px;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.field-feedback.success {
+  color: var(--success);
+}
+
+.field-feedback.error {
+  color: var(--danger);
+}
+
+.field-feedback.pending {
+  color: var(--warning);
+}
+
 .status {
   display: flex;
   align-items: center;
@@ -386,6 +436,10 @@ textarea:focus-visible {
 
 .token-feedback.error {
   color: var(--danger);
+}
+
+.token-feedback.unavailable {
+  color: var(--muted);
 }
 
 .token-feedback.pending .token-feedback-icon {

@@ -20,7 +20,11 @@ export function createSettingsMenu(
     setOpen(settingsMenu.hidden);
   });
   deleteTokenButton.addEventListener('click', () => {
-    void onDeleteToken();
+    if (!window.confirm('Delete stored token and session?')) {
+      return;
+    }
+
+    void Promise.resolve(onDeleteToken()).finally(() => settingsButton.focus());
   });
   document.addEventListener('click', (event) => {
     if (settingsMenu.hidden || settingsMenuContainer.contains(event.target as Node)) {

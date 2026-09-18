@@ -39,6 +39,7 @@ export function startPopup(): void {
     stageSelect,
     refreshResourcesButton,
     testTrailsConnectionButton,
+    trailsConnectionFeedback,
     locatorTypeInput,
     locatorOutput,
     elementTypeInput,
@@ -121,7 +122,7 @@ export function startPopup(): void {
     },
   );
   const connectionHealth = createConnectionHealth(
-    { trailsServiceUrlInput, testTrailsConnectionButton },
+    { trailsServiceUrlInput, testTrailsConnectionButton, trailsConnectionFeedback },
     {
       getAccessToken: () => tokenSession.accessToken,
       saveSettings,
@@ -270,7 +271,7 @@ export function startPopup(): void {
     refreshTabAvailability();
 
     if (authController.hasValidAccessToken()) {
-      tokenPanelController.setExpiringStatus('Token available.', 'success');
+      tokenPanelController.setExpiringStatus('Connected', 'success');
       authController.scheduleTokenRefresh();
       await resourceController.loadApplicationStages();
       tabController.activate('target');
@@ -279,7 +280,7 @@ export function startPopup(): void {
 
     if (authController.canRefreshToken()) {
       tokenPanelController.setStatus('Refreshing token...', 'pending');
-      await authController.refreshAccessToken('Token refreshed.');
+      await authController.refreshAccessToken('Connected');
       tabController.activate('target');
     }
   }

@@ -112,7 +112,7 @@ export function createAuthController(
         return;
       }
 
-      await applyTokenResponse(result, 'Token fetched.');
+      await applyTokenResponse(result, 'Connected');
       await saveSettings();
       await resourceController.loadApplicationStages();
       tabController.activate('target');
@@ -133,7 +133,7 @@ export function createAuthController(
     tokenPanelController.clearOutput();
     tokenPanelController.setVisibility(false);
     resourceController.showTokenRequired();
-    tokenPanelController.setStatus('Token deleted.', 'success');
+    tokenPanelController.setStatus('Unavailable', 'error');
     refreshTabAvailability();
     tabController.activate('auth');
     setStatus('Stored token deleted.', 'success');
@@ -211,7 +211,7 @@ export function createAuthController(
       );
     tokenRefreshTimeoutId = window.setTimeout(() => {
       tokenPanelController.setStatus('Refreshing token...', 'pending');
-      refreshAccessToken('Token refreshed.').catch((error) => {
+      refreshAccessToken('Connected').catch((error) => {
         tokenPanelController.setStatus(`Refresh failed: ${String(error)}`, 'error');
       });
     }, refreshDelayMs);

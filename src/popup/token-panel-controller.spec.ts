@@ -114,12 +114,12 @@ describe('token panel controller', () => {
     vi.setSystemTime(1_000);
     const { controller, tokenFeedback, tokenFeedbackIcon, tokenFeedbackText } = createHarness();
 
-    controller.setExpiringStatus('Token available.', 'success');
+    controller.setExpiringStatus('Connected', 'success');
 
     expect(tokenFeedback.className).toBe('token-feedback visible success');
     expect(tokenFeedback.title).toBe('Expires in 1m 00s.');
     expect(tokenFeedbackIcon.dataset.lucide).toBe('circle-check');
-    expect(tokenFeedbackText.textContent).toBe('Token available.');
+    expect(tokenFeedbackText.textContent).toBe('Connected');
     controller.clearCountdown();
   });
 
@@ -129,7 +129,7 @@ describe('token panel controller', () => {
     const { controller, setAccessTokenExpiresAt, tokenFeedback } = createHarness();
     setAccessTokenExpiresAt(1_000);
 
-    controller.setExpiringStatus('Token available.', 'success');
+    controller.setExpiringStatus('Connected', 'success');
 
     expect(tokenFeedback.className).toBe('token-feedback visible error');
     expect(tokenFeedback.title).toBe('Token expired.');

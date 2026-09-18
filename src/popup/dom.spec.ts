@@ -44,6 +44,7 @@ const divIds = [
   'elementPanel',
   'settingsMenuContainer',
   'settingsMenu',
+  'trailsConnectionFeedback',
 ];
 
 function renderPopupElements(): void {

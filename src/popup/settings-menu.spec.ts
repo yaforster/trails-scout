@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSettingsMenu } from './settings-menu';
 
 function button(id: string): HTMLButtonElement {
@@ -24,6 +24,11 @@ function renderSettingsMenu(): void {
 describe('settings menu', () => {
   beforeEach(() => {
     renderSettingsMenu();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('opens when the settings button is clicked', () => {
@@ -109,5 +114,23 @@ describe('settings menu', () => {
     button('deleteTokenButton').click();
 
     expect(onDeleteToken).toHaveBeenCalledOnce();
+  });
+
+  it('does not delete when confirmation is cancelled', () => {
+    vi.mocked(window.confirm).mockReturnValue(false);
+    const onDeleteToken = vi.fn();
+    createSettingsMenu(
+      {
+        settingsMenuContainer: div('settingsMenuContainer'),
+        settingsButton: button('settingsButton'),
+        settingsMenu: div('settingsMenu'),
+        deleteTokenButton: button('deleteTokenButton'),
+      },
+      onDeleteToken,
+    );
+
+    button('deleteTokenButton').click();
+
+    expect(onDeleteToken).not.toHaveBeenCalled();
   });
 });
