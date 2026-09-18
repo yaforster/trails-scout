@@ -34,6 +34,10 @@ const buttonIds = [
   'copyLocatorButton',
   'editLocatorButton',
   'validateLocatorButton',
+  'captureScreenshotButton',
+  'replaceScreenshotButton',
+  'removeScreenshotButton',
+  'retryScreenshotButton',
   'authTab',
   'targetTab',
   'elementTab',
@@ -68,8 +72,11 @@ function renderPopupElements(): void {
     ...buttonIds.map((id) => `<button id="${id}"></button>`),
     `<span id="showTokenLabel"></span>`,
     `<span id="tokenFeedbackText"></span>`,
+    `<span id="screenshotDetails"></span>`,
+    `<span id="screenshotFeedback"></span>`,
     `<i id="showTokenIcon"></i>`,
     `<i id="tokenFeedbackIcon"></i>`,
+    `<img id="screenshotPreview" />`,
     ...divIds.map((id) => `<div id="${id}"></div>`),
   ].join('');
 }

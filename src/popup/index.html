@@ -309,6 +309,31 @@
           <span aria-live="polite" class="field-feedback" id="copyLocatorFeedback"></span>
         </div>
 
+        <section class="screenshot-box" aria-labelledby="screenshotHeading">
+          <h3 id="screenshotHeading">Screenshot</h3>
+          <p class="help-text">
+            Captures the validated element with a small margin. The page scrolls to off-screen
+            elements; visible content can contain sensitive data.
+          </p>
+          <div class="actions">
+            <button class="secondary" id="captureScreenshotButton" type="button">
+              Capture screenshot
+            </button>
+            <button class="secondary" disabled id="replaceScreenshotButton" type="button">
+              Replace
+            </button>
+            <button class="secondary" disabled id="removeScreenshotButton" type="button">
+              Remove
+            </button>
+            <button class="secondary" hidden id="retryScreenshotButton" type="button">
+              Retry upload
+            </button>
+          </div>
+          <img alt="Cropped screenshot of the validated element" hidden id="screenshotPreview" />
+          <span id="screenshotDetails"></span>
+          <span aria-live="polite" class="field-feedback" id="screenshotFeedback"></span>
+        </section>
+
         <div class="actions">
           <button class="primary" disabled id="createElementButton" type="button">
             <i class="icon" data-lucide="send"></i>

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTabController } from './tabs';
 
 function button(id: string): HTMLButtonElement {
@@ -104,6 +104,30 @@ describe('tab controller', () => {
     elementEnabled = false;
     controller.refreshAvailability();
 
+    expect(button('targetTab').classList.contains('active')).toBe(true);
+  });
+
+  it('persists user navigation and restores without rewriting the saved tab', () => {
+    const persistTab = vi.fn();
+    const controller = createTabController(
+      {
+        authTab: button('authTab'),
+        targetTab: button('targetTab'),
+        elementTab: button('elementTab'),
+        authPanel: panel('authPanel'),
+        targetPanel: panel('targetPanel'),
+        elementPanel: panel('elementPanel'),
+      },
+      () => true,
+      () => true,
+      persistTab,
+    );
+
+    controller.activate('element');
+    controller.restore('target');
+
+    expect(persistTab).toHaveBeenCalledOnce();
+    expect(persistTab).toHaveBeenCalledWith('element');
     expect(button('targetTab').classList.contains('active')).toBe(true);
   });
 });

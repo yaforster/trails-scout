@@ -2,7 +2,9 @@ import browser from 'webextension-polyfill';
 import {
   createSelectedElement,
   isInspectorMessage,
+  isResolveLocatorBoundsMessage,
   isValidateLocatorMessage,
+  resolveLocatorBoundsInDocument,
   toSelectedElementMessage,
   validateLocatorInDocument,
 } from './locator-selectors';
@@ -14,6 +16,9 @@ let overlay: HTMLDivElement | null = null;
 browser.runtime.onMessage.addListener((message: unknown) => {
   if (isValidateLocatorMessage(message)) {
     return Promise.resolve(validateLocatorInDocument(message));
+  }
+  if (isResolveLocatorBoundsMessage(message)) {
+    return Promise.resolve().then(() => resolveLocatorBoundsInDocument(message));
   }
   if (isInspectorMessage(message)) {
     startInspector();

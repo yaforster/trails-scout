@@ -1,7 +1,7 @@
 import browser from 'webextension-polyfill';
 import { injectedInspector } from './injected-inspector';
 import type { LocatorType, StatusType } from './types';
-import type { LocatorValidationResult } from '../locator-selectors';
+import type { LocatorBoundsResult, LocatorValidationResult } from '../locator-selectors';
 import { getActiveTab, readErrorMessage } from './utils';
 
 type SetStatus = (message: string, type?: StatusType) => void;
@@ -80,6 +80,48 @@ export async function validateLocator(
   }
 }
 
+export async function getLocatorBounds(
+  locatorType: LocatorType,
+  locatorString: string,
+): Promise<LocatorBoundsResult> {
+  const tab = await getActiveTab();
+  if (!tab.id) {
+    throw new Error('No active tab is available.');
+  }
+  if (!canInspectTab(tab)) {
+    throw new Error('Open an http or https page before capturing a locator screenshot.');
+  }
+
+  const request = {
+    type: 'TRAILS_RESOLVE_LOCATOR_BOUNDS' as const,
+    requestId: `${Date.now()}-${Math.random()}`,
+    locatorType,
+    locatorString,
+    scrollIntoView: true,
+  };
+  try {
+    const result = await browser.tabs.sendMessage(tab.id, request);
+    if (isBoundsResult(result, request.requestId)) {
+      return result;
+    }
+    throw new Error('Page returned an invalid locator bounds result.');
+  } catch (error) {
+    if (!isMissingReceiverError(error)) {
+      throw error;
+    }
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: injectedInspector,
+      args: [request],
+    });
+    const result = results[0]?.result;
+    if (!isBoundsResult(result, request.requestId)) {
+      throw new Error('Page returned an invalid locator bounds result.');
+    }
+    return result;
+  }
+}
+
 async function sendStartInspectorMessage(tabId: number): Promise<void> {
   try {
     await browser.tabs.sendMessage(tabId, { type: 'TRAILS_START_INSPECTOR' });
@@ -117,6 +159,15 @@ function isValidationResult(value: unknown, requestId: string): value is Locator
     typeof value === 'object' &&
     value !== null &&
     (value as Record<string, unknown>).type === 'TRAILS_LOCATOR_VALIDATED' &&
+    (value as Record<string, unknown>).requestId === requestId
+  );
+}
+
+function isBoundsResult(value: unknown, requestId: string): value is LocatorBoundsResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as Record<string, unknown>).type === 'TRAILS_LOCATOR_BOUNDS_RESOLVED' &&
     (value as Record<string, unknown>).requestId === requestId
   );
 }

@@ -1,3 +1,4 @@
+import { resolveResourceLink } from './api';
 import { locatorStringFor, toElementDefinition } from './token-utils';
 import type { LocatorValidationResult } from '../locator-selectors';
 import type {
@@ -5,6 +6,7 @@ import type {
   ElementType,
   ElementResource,
   LocatorType,
+  PersistedElement,
   SelectedLocator,
   StatusType,
 } from './types';
@@ -21,6 +23,7 @@ interface ElementControllerElements {
   locatorXpathFeedback?: HTMLElement;
   editLocatorButton?: HTMLButtonElement;
   validateLocatorButton?: HTMLButtonElement;
+  retryScreenshotButton?: HTMLButtonElement;
   elementTypeInput: HTMLSelectElement;
   elementLabelInput: HTMLInputElement;
   createElementButton: HTMLButtonElement;
@@ -41,6 +44,13 @@ interface ElementControllerDependencies {
     locatorString: string,
   ): Promise<LocatorValidationResult>;
   getExistingElements(): Promise<ElementResource[]>;
+  getScreenshot?(): Blob | null;
+  clearScreenshot?(): void;
+  uploadScreenshot?(
+    uploadHref: string,
+    screenshot: Blob,
+    accessToken: string | null,
+  ): Promise<void>;
   saveSettings(): Promise<void>;
   setStatus(message: string, type?: StatusType): void;
 }
@@ -49,6 +59,7 @@ export interface ElementController {
   createElement(): Promise<void>;
   copyLocator(): Promise<void>;
   getSelectedLocator(): SelectedLocator | null;
+  getCurrentLocator(): { locatorType: LocatorType; locatorString: string } | null;
   refreshSelectedLocator(): void;
   restoreSelectedLocator(locator: SelectedLocator | null): void;
   setSelectedLocator(locator: SelectedLocator): void;
@@ -56,6 +67,7 @@ export interface ElementController {
   validateCurrentLocator(): Promise<void>;
   editLocator(): void;
   handleLocatorInput(): void;
+  retryScreenshotUpload(): Promise<void>;
 }
 
 export function createElementController(
@@ -65,6 +77,8 @@ export function createElementController(
   let selectedLocator: SelectedLocator | null = null;
   let requestActive = false;
   let validation: LocatorValidationResult | null = null;
+  let creationComplete = false;
+  let pendingScreenshotUpload: { href: string; blob: Blob } | null = null;
 
   const {
     trailsServiceUrlInput,
@@ -78,6 +92,7 @@ export function createElementController(
     locatorXpathFeedback,
     editLocatorButton,
     validateLocatorButton,
+    retryScreenshotButton,
     elementTypeInput,
     elementLabelInput,
     createElementButton,
@@ -91,6 +106,11 @@ export function createElementController(
     putElement,
     validateLocator,
     getExistingElements,
+    getScreenshot = () => null,
+    clearScreenshot = () => undefined,
+    uploadScreenshot = async () => {
+      throw new Error('Screenshot upload is unavailable.');
+    },
     saveSettings,
     setStatus,
   } = dependencies;
@@ -141,8 +161,39 @@ export function createElementController(
         return;
       }
       await saveSettings();
-      await putElement(createElementHref, definition, getAccessToken());
-      setStatus('Element created.', 'success');
+      const createdElement = (await putElement(
+        createElementHref,
+        definition,
+        getAccessToken(),
+      )) as PersistedElement;
+      creationComplete = true;
+      const screenshot = getScreenshot();
+      if (!screenshot) {
+        setStatus('Element created.', 'success');
+        return;
+      }
+
+      const uploadHref = resolveResourceLink(
+        trailsServiceUrlInput.value.trim(),
+        createdElement,
+        'uploadScreenshot',
+        'PUT',
+      );
+      pendingScreenshotUpload = { href: uploadHref, blob: screenshot };
+      try {
+        await uploadScreenshot(uploadHref, screenshot, getAccessToken());
+        pendingScreenshotUpload = null;
+        clearScreenshot();
+        if (retryScreenshotButton) {
+          retryScreenshotButton.hidden = true;
+        }
+        setStatus('Element and screenshot created.', 'success');
+      } catch (error) {
+        if (retryScreenshotButton) {
+          retryScreenshotButton.hidden = false;
+        }
+        setStatus(`Element created; screenshot upload failed: ${String(error)}`, 'error');
+      }
     } catch (error) {
       setStatus(String(error), 'error');
     } finally {
@@ -179,12 +230,20 @@ export function createElementController(
       currentLocatorString() &&
       elementLabelInput.value.trim() &&
       validation?.status === 'unique' &&
-      isCurrentValidation(validation),
+      isCurrentValidation(validation) &&
+      !creationComplete,
     );
   }
 
   function getSelectedLocator(): SelectedLocator | null {
     return selectedLocator;
+  }
+
+  function getCurrentLocator(): { locatorType: LocatorType; locatorString: string } | null {
+    const locatorString = currentLocatorString();
+    return locatorString
+      ? { locatorType: locatorTypeInput.value as LocatorType, locatorString }
+      : null;
   }
 
   function refreshSelectedLocator(): void {
@@ -208,6 +267,8 @@ export function createElementController(
   function setSelectedLocator(locator: SelectedLocator): void {
     selectedLocator = locator;
     validation = null;
+    creationComplete = false;
+    pendingScreenshotUpload = null;
     refreshSelectedLocator();
   }
 
@@ -256,8 +317,32 @@ export function createElementController(
       selectedLocator.cssSelector = locatorOutput.value;
     }
     validation = null;
+    creationComplete = false;
+    pendingScreenshotUpload = null;
     setValidationFeedback('Locator changed. Validate again.', 'error');
     refreshCreateAvailability();
+  }
+
+  async function retryScreenshotUpload(): Promise<void> {
+    if (!pendingScreenshotUpload) {
+      setStatus('No screenshot upload is waiting for retry.', 'error');
+      return;
+    }
+    try {
+      await uploadScreenshot(
+        pendingScreenshotUpload.href,
+        pendingScreenshotUpload.blob,
+        getAccessToken(),
+      );
+      pendingScreenshotUpload = null;
+      clearScreenshot();
+      if (retryScreenshotButton) {
+        retryScreenshotButton.hidden = true;
+      }
+      setStatus('Screenshot uploaded.', 'success');
+    } catch (error) {
+      setStatus(`Screenshot upload failed: ${String(error)}`, 'error');
+    }
   }
 
   function setCopyFeedback(message: string, type: 'success' | 'error'): void {
@@ -311,6 +396,7 @@ export function createElementController(
   return {
     createElement,
     getSelectedLocator,
+    getCurrentLocator,
     refreshSelectedLocator,
     restoreSelectedLocator,
     setSelectedLocator,
@@ -319,5 +405,6 @@ export function createElementController(
     validateCurrentLocator,
     editLocator,
     handleLocatorInput,
+    retryScreenshotUpload,
   };
 }

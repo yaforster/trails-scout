@@ -45,6 +45,10 @@ Enter a client secret only when using a confidential client. Public-client setup
 
 Trails URL, Keycloak endpoint, client ID, optional client secret, selected target, and session tokens persist in browser-local extension storage. Username and password are never stored. Values are not source-controlled; do not put credentials or secrets in this repository.
 
+## Screenshots
+
+After locator validation, Scout can capture the active tab, scroll to the element, and crop a small-margin screenshot around it. The image stays in popup memory until upload and may contain sensitive content.
+
 ## Useful commands
 
 ```bash

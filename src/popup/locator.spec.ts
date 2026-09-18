@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import browser from 'webextension-polyfill';
-import { startLocatorPicker } from './locator';
+import { getLocatorBounds, startLocatorPicker } from './locator';
 
 vi.mock('webextension-polyfill', () => ({
   default: {
@@ -84,5 +84,37 @@ describe('locator picker', () => {
       target: { tabId: 7 },
       func: expect.any(Function),
     });
+  });
+
+  it('resolves locator bounds and requests scrolling', async () => {
+    const bounds = {
+      type: 'TRAILS_LOCATOR_BOUNDS_RESOLVED',
+      requestId: 'request',
+      locatorType: 'CSS',
+      locatorString: '#checkout',
+      left: 10,
+      top: 20,
+      width: 100,
+      height: 40,
+      viewportWidth: 800,
+      viewportHeight: 600,
+    };
+    tabs.query.mockResolvedValue([{ id: 7, url: 'https://example.test' }]);
+    tabs.sendMessage.mockImplementation((_tabId, request) =>
+      Promise.resolve({ ...bounds, requestId: request.requestId }),
+    );
+
+    const result = await getLocatorBounds('CSS', '#checkout');
+
+    expect(tabs.sendMessage).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({
+        type: 'TRAILS_RESOLVE_LOCATOR_BOUNDS',
+        locatorType: 'CSS',
+        locatorString: '#checkout',
+        scrollIntoView: true,
+      }),
+    );
+    expect(result).toMatchObject({ ...bounds, requestId: expect.any(String) });
   });
 });

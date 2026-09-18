@@ -48,6 +48,7 @@ export interface ElementDefinition {
 
 export interface PersistedElement {
   id?: number;
+  _links?: ResourceLinks;
 }
 
 export interface ElementResource {

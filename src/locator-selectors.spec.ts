@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createSelectedElement,
   generateCssSelector,
   generateXPath,
   isInspectorMessage,
   looksGenerated,
+  resolveLocatorBoundsInDocument,
   toSelectedElementMessage,
   validateLocatorInDocument,
 } from './locator-selectors';
@@ -53,6 +54,34 @@ describe('locator selectors', () => {
         locatorString: '[',
       }),
     ).toMatchObject({ status: 'invalid', matchCount: 0 });
+  });
+
+  it('scrolls to and resolves bounds for one matching locator', () => {
+    document.body.innerHTML = `<button id="checkout">Checkout</button>`;
+    const button = document.getElementById('checkout')!;
+    const scrollIntoView = vi.fn();
+    button.scrollIntoView = scrollIntoView;
+    vi.spyOn(button, 'getBoundingClientRect').mockReturnValue({
+      top: 20,
+      left: 30,
+      width: 120,
+      height: 40,
+      right: 150,
+      bottom: 60,
+      x: 30,
+      y: 20,
+      toJSON: () => ({}),
+    });
+
+    const result = resolveLocatorBoundsInDocument({
+      requestId: 'bounds',
+      locatorType: 'CSS',
+      locatorString: '#checkout',
+      scrollIntoView: true,
+    });
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'center' });
+    expect(result).toMatchObject({ left: 30, top: 20, width: 120, height: 40 });
   });
 
   it('uses stable attributes before structural selectors', () => {

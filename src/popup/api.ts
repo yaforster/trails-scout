@@ -111,6 +111,24 @@ export async function putElement(
   return result;
 }
 
+export async function uploadElementScreenshot(
+  uploadHref: string,
+  screenshot: Blob,
+  accessToken: string | null,
+): Promise<void> {
+  const formData = new FormData();
+  formData.append('file', screenshot, 'screenshot.png');
+  const response = await fetch(uploadHref, {
+    method: 'PUT',
+    headers: buildAuthorizationHeaders(accessToken),
+    body: formData,
+  });
+  const result = await readJsonResponse<unknown>(response);
+  if (!response.ok) {
+    throw new Error(readErrorMessage(result, 'Screenshot upload failed.'));
+  }
+}
+
 export function buildAuthorizationHeaders(accessToken: string | null): HeadersInit {
   return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }

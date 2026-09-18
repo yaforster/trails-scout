@@ -21,6 +21,27 @@ export interface LocatorValidationResult {
   message: string;
 }
 
+export interface ResolveLocatorBoundsMessage {
+  type: 'TRAILS_RESOLVE_LOCATOR_BOUNDS';
+  requestId: string;
+  locatorType: 'CSS' | 'XPATH';
+  locatorString: string;
+  scrollIntoView?: boolean;
+}
+
+export interface LocatorBoundsResult {
+  type: 'TRAILS_LOCATOR_BOUNDS_RESOLVED';
+  requestId: string;
+  locatorType: 'CSS' | 'XPATH';
+  locatorString: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  viewportWidth: number;
+  viewportHeight: number;
+}
+
 export interface SelectedElementMessage {
   type: 'TRAILS_ELEMENT_SELECTED';
   cssSelector: string;
@@ -117,6 +138,63 @@ export function isValidateLocatorMessage(message: unknown): message is ValidateL
       (message as Record<string, unknown>).locatorType === 'XPATH') &&
     typeof (message as Record<string, unknown>).locatorString === 'string'
   );
+}
+
+export function isResolveLocatorBoundsMessage(
+  message: unknown,
+): message is ResolveLocatorBoundsMessage {
+  return (
+    typeof message === 'object' &&
+    message !== null &&
+    (message as Record<string, unknown>).type === 'TRAILS_RESOLVE_LOCATOR_BOUNDS' &&
+    typeof (message as Record<string, unknown>).requestId === 'string' &&
+    ((message as Record<string, unknown>).locatorType === 'CSS' ||
+      (message as Record<string, unknown>).locatorType === 'XPATH') &&
+    typeof (message as Record<string, unknown>).locatorString === 'string'
+  );
+}
+
+export function resolveLocatorBoundsInDocument(
+  request: Pick<
+    ResolveLocatorBoundsMessage,
+    'requestId' | 'locatorType' | 'locatorString' | 'scrollIntoView'
+  >,
+  documentRef: Document = document,
+): LocatorBoundsResult {
+  const locatorString = request.locatorString.trim();
+  const matches =
+    request.locatorType === 'CSS'
+      ? Array.from(documentRef.querySelectorAll(locatorString))
+      : xpathElements(documentRef, locatorString);
+  if (matches.length !== 1) {
+    throw new Error(
+      matches.length === 0
+        ? 'Locator does not match an element.'
+        : 'Locator matches multiple elements.',
+    );
+  }
+
+  const element = matches[0];
+  if (request.scrollIntoView) {
+    element.scrollIntoView({ block: 'center', inline: 'center' });
+  }
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    throw new Error('Locator matches an element without visible bounds.');
+  }
+
+  return {
+    type: 'TRAILS_LOCATOR_BOUNDS_RESOLVED',
+    requestId: request.requestId,
+    locatorType: request.locatorType,
+    locatorString: request.locatorString,
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+    viewportWidth: documentRef.documentElement.clientWidth || window.innerWidth,
+    viewportHeight: documentRef.documentElement.clientHeight || window.innerHeight,
+  };
 }
 
 export function validateLocatorInDocument(
@@ -246,4 +324,22 @@ function countXPathElements(documentRef: Document, locatorString: string): numbe
     }
   }
   return count;
+}
+
+function xpathElements(documentRef: Document, locatorString: string): Element[] {
+  const result = documentRef.evaluate(
+    locatorString,
+    documentRef,
+    null,
+    XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+    null,
+  );
+  const elements: Element[] = [];
+  for (let index = 0; index < result.snapshotLength; index += 1) {
+    const node = result.snapshotItem(index);
+    if (node?.nodeType === Node.ELEMENT_NODE) {
+      elements.push(node as Element);
+    }
+  }
+  return elements;
 }

@@ -1,8 +1,9 @@
 export function injectedInspector(request?: {
-  type: 'TRAILS_VALIDATE_LOCATOR';
+  type: 'TRAILS_VALIDATE_LOCATOR' | 'TRAILS_RESOLVE_LOCATOR_BOUNDS';
   requestId: string;
   locatorType: 'CSS' | 'XPATH';
   locatorString: string;
+  scrollIntoView?: boolean;
 }): unknown {
   if (request?.type === 'TRAILS_VALIDATE_LOCATOR') {
     const locatorString = request.locatorString.trim();
@@ -37,6 +38,41 @@ export function injectedInspector(request?: {
         message: `Invalid ${request.locatorType} locator.`,
       };
     }
+  }
+
+  if (request?.type === 'TRAILS_RESOLVE_LOCATOR_BOUNDS') {
+    const locatorString = request.locatorString.trim();
+    const matches =
+      request.locatorType === 'CSS'
+        ? Array.from(document.querySelectorAll(locatorString))
+        : xpathElements(locatorString);
+    if (matches.length !== 1) {
+      throw new Error(
+        matches.length === 0
+          ? 'Locator does not match an element.'
+          : 'Locator matches multiple elements.',
+      );
+    }
+    const element = matches[0];
+    if (request.scrollIntoView) {
+      element.scrollIntoView({ block: 'center', inline: 'center' });
+    }
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      throw new Error('Locator matches an element without visible bounds.');
+    }
+    return {
+      type: 'TRAILS_LOCATOR_BOUNDS_RESOLVED',
+      requestId: request.requestId,
+      locatorType: request.locatorType,
+      locatorString: request.locatorString,
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+      viewportWidth: document.documentElement.clientWidth || window.innerWidth,
+      viewportHeight: document.documentElement.clientHeight || window.innerHeight,
+    };
   }
 
   type InspectorState = {
@@ -300,5 +336,23 @@ export function injectedInspector(request?: {
       }
     }
     return count;
+  }
+
+  function xpathElements(locatorString: string): Element[] {
+    const result = document.evaluate(
+      locatorString,
+      document,
+      null,
+      XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+      null,
+    );
+    const elements: Element[] = [];
+    for (let index = 0; index < result.snapshotLength; index += 1) {
+      const node = result.snapshotItem(index);
+      if (node?.nodeType === Node.ELEMENT_NODE) {
+        elements.push(node as Element);
+      }
+    }
+    return elements;
   }
 }

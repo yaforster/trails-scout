@@ -16,6 +16,7 @@ function createHarness(
     stageId: '8',
   },
   existingElements: object[] = [],
+  screenshot: Blob | null = null,
 ) {
   document.body.innerHTML = `
         <input id="trailsServiceUrl" value=" http://localhost:8080/ " />
@@ -30,6 +31,7 @@ function createHarness(
         <span id="copyLocatorFeedback"></span>
         <button id="editLocatorButton"></button>
         <button id="validateLocatorButton"></button>
+        <button id="retryScreenshotButton" hidden></button>
         <span id="locatorValidationFeedback"></span>
         <span id="locatorCssFeedback"></span>
         <span id="locatorXpathFeedback"></span>
@@ -43,6 +45,7 @@ function createHarness(
   const putElement = vi.fn().mockResolvedValue({ id: 42 });
   const saveSettings = vi.fn().mockResolvedValue(undefined);
   const setStatus = vi.fn();
+  const uploadScreenshot = vi.fn().mockResolvedValue(undefined);
   const validateLocator = vi.fn().mockResolvedValue({
     type: 'TRAILS_LOCATOR_VALIDATED',
     requestId: 'test',
@@ -60,6 +63,7 @@ function createHarness(
       locatorCssOutput: document.getElementById('locatorCssOutput') as HTMLInputElement,
       locatorXpathOutput: document.getElementById('locatorXpathOutput') as HTMLInputElement,
       copyLocatorFeedback: document.getElementById('copyLocatorFeedback') as HTMLSpanElement,
+      retryScreenshotButton: document.getElementById('retryScreenshotButton') as HTMLButtonElement,
       elementTypeInput: document.getElementById('elementType') as HTMLSelectElement,
       elementLabelInput: document.getElementById('elementLabel') as HTMLInputElement,
       createElementButton: document.getElementById('createElementButton') as HTMLButtonElement,
@@ -74,6 +78,9 @@ function createHarness(
       setStatus,
       validateLocator,
       getExistingElements: vi.fn().mockResolvedValue(existingElements),
+      getScreenshot: () => screenshot,
+      clearScreenshot: vi.fn(),
+      uploadScreenshot,
     },
   );
 
@@ -86,6 +93,8 @@ function createHarness(
     locatorOutput: document.getElementById('locatorOutput') as HTMLTextAreaElement,
     locatorTypeInput: document.getElementById('locatorType') as HTMLSelectElement,
     setStatus,
+    uploadScreenshot,
+    retryScreenshotButton: document.getElementById('retryScreenshotButton') as HTMLButtonElement,
   };
 }
 
@@ -158,7 +167,7 @@ describe('element controller', () => {
 
     expect(saveSettings).toHaveBeenCalled();
     expect(setStatus).toHaveBeenLastCalledWith('Element created.', 'success');
-    expect(createElementButton.disabled).toBe(false);
+    expect(createElementButton.disabled).toBe(true);
   });
 
   it('rejects creation when no locator has been selected', async () => {
@@ -236,5 +245,33 @@ describe('element controller', () => {
       'Element already exists: Existing checkout (BUTTON).',
       'error',
     );
+  });
+
+  it('keeps created element outcome and retries failed screenshot upload', async () => {
+    const screenshot = new Blob(['png'], { type: 'image/png' });
+    const { controller, putElement, uploadScreenshot, retryScreenshotButton, setStatus } =
+      createHarness(undefined, [], screenshot);
+    putElement.mockResolvedValue({
+      id: 42,
+      _links: { uploadScreenshot: { href: '/api/elements/42/screenshot', method: 'PUT' } },
+    });
+    uploadScreenshot.mockRejectedValueOnce(new Error('Service unavailable.'));
+    controller.setSelectedLocator(locator);
+    await controller.validateCurrentLocator();
+
+    await controller.createElement();
+
+    expect(putElement).toHaveBeenCalledTimes(1);
+    expect(setStatus).toHaveBeenLastCalledWith(
+      'Element created; screenshot upload failed: Error: Service unavailable.',
+      'error',
+    );
+    expect(retryScreenshotButton.hidden).toBe(false);
+
+    await controller.retryScreenshotUpload();
+
+    expect(uploadScreenshot).toHaveBeenCalledTimes(2);
+    expect(putElement).toHaveBeenCalledTimes(1);
+    expect(setStatus).toHaveBeenLastCalledWith('Screenshot uploaded.', 'success');
   });
 });

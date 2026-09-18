@@ -6,6 +6,7 @@ import {
   putElement,
   resolveResourceLink,
   testHealthEndpoint,
+  uploadElementScreenshot,
 } from './api';
 import type { ElementDefinition, PagedResource, PersistedElement } from './types';
 
@@ -218,6 +219,22 @@ describe('popup api', () => {
       );
 
       await expect(result).rejects.toThrow('Element label already exists.');
+    });
+  });
+
+  describe('uploadElementScreenshot', () => {
+    it('uploads PNG data as multipart file with authorization', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ id: 9 }));
+      const screenshot = new Blob(['png'], { type: 'image/png' });
+
+      await uploadElementScreenshot('https://trails.local/screenshot', screenshot, 'token');
+
+      const request = fetchSpy.mock.calls[0][1] as RequestInit;
+      expect(fetchSpy.mock.calls[0][0]).toBe('https://trails.local/screenshot');
+      expect(request.method).toBe('PUT');
+      expect(request.headers).toEqual({ Authorization: 'Bearer token' });
+      expect(request.body).toBeInstanceOf(FormData);
+      expect((request.body as FormData).get('file')).toBeInstanceOf(File);
     });
   });
 

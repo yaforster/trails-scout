@@ -11,6 +11,7 @@ interface TabElements {
 
 export interface TabController {
   activate(tabId: TabId): void;
+  restore(tabId: TabId): void;
   refreshAvailability(): void;
 }
 
@@ -18,6 +19,7 @@ export function createTabController(
   elements: TabElements,
   isTargetEnabled: () => boolean,
   isElementEnabled: () => boolean,
+  persistTab?: (tabId: TabId) => void,
 ): TabController {
   let activeTab: TabId = 'auth';
   const { authTab, targetTab, elementTab, authPanel, targetPanel, elementPanel } = elements;
@@ -44,15 +46,26 @@ export function createTabController(
   }
 
   function activate(tabId: TabId): void {
-    if (tabId === 'target' && !isTargetEnabled()) {
+    activateTab(tabId, true);
+  }
+
+  function restore(tabId: TabId): void {
+    activateTab(tabId, false);
+  }
+
+  function activateTab(tabId: TabId, persist: boolean): void {
+    if (persist && tabId === 'target' && !isTargetEnabled()) {
       return;
     }
 
-    if (tabId === 'element' && !isElementEnabled()) {
+    if (persist && tabId === 'element' && !isElementEnabled()) {
       return;
     }
 
     activeTab = tabId;
+    if (persist) {
+      persistTab?.(tabId);
+    }
 
     const tabs: Record<TabId, HTMLButtonElement> = {
       auth: authTab,
@@ -74,7 +87,7 @@ export function createTabController(
     }
   }
 
-  return { activate, refreshAvailability };
+  return { activate, restore, refreshAvailability };
 }
 
 function setTabEnabled(tab: HTMLButtonElement, enabled: boolean): void {

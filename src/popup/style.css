@@ -253,6 +253,31 @@ h2 {
   line-height: 1.35;
 }
 
+.screenshot-box {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.screenshot-box h3 {
+  margin: 0;
+  font-size: 12px;
+}
+
+.screenshot-box img {
+  display: block;
+  max-width: 100%;
+  max-height: 140px;
+  margin-top: 8px;
+  object-fit: contain;
+  border: 1px solid var(--border);
+}
+
+.screenshot-box img[hidden] {
+  display: none;
+}
+
 label {
   display: block;
   margin: 8px 0 4px;

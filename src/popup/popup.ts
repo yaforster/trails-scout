@@ -1,5 +1,5 @@
 import browser from 'webextension-polyfill';
-import { fetchAllPages, fetchAllPagesWithLinks, putElement } from './api';
+import { fetchAllPages, fetchAllPagesWithLinks, putElement, uploadElementScreenshot } from './api';
 import { type AuthController, createAuthController } from './auth-controller';
 import {
   elementTypes,
@@ -10,16 +10,17 @@ import {
 import { getPopupElements } from './dom';
 import { createElementController } from './element-controller';
 import { renderIcons } from './icons';
-import { startLocatorPicker, validateLocator } from './locator';
+import { getLocatorBounds, startLocatorPicker, validateLocator } from './locator';
 import { createConnectionHealth } from './connection-health';
 import { createConnectionSettings } from './connection-settings';
 import { createResourceController } from './resource-controller';
+import { createScreenshotController } from './screenshot-controller';
 import { createSettingsMenu } from './settings-menu';
 import { createTabController } from './tabs';
 import { createTokenPanelController } from './token-panel-controller';
 import { TokenSession } from './token-session';
 import { createThemeController } from './theme-controller';
-import type { SelectedLocator } from './types';
+import type { SelectedLocator, TabId } from './types';
 import { createStatusView } from './status-view';
 import { isLocatorCancelledMessage, isSelectedLocatorMessage, storageGet } from './utils';
 
@@ -28,6 +29,7 @@ export function startPopup(): void {
   let authController: AuthController;
   let connectionSettings: ReturnType<typeof createConnectionSettings>;
   let elementController: ReturnType<typeof createElementController>;
+  let screenshotController: ReturnType<typeof createScreenshotController>;
 
   const {
     trailsServiceUrlInput,
@@ -53,6 +55,13 @@ export function startPopup(): void {
     locatorXpathFeedback,
     copyLocatorButton,
     copyLocatorFeedback,
+    captureScreenshotButton,
+    replaceScreenshotButton,
+    removeScreenshotButton,
+    retryScreenshotButton,
+    screenshotPreview,
+    screenshotDetails,
+    screenshotFeedback,
     elementTargetSummary,
     captureBlocker,
     elementTypeInput,
@@ -83,6 +92,21 @@ export function startPopup(): void {
   } = getPopupElements();
   const setStatus = createStatusView(statusElement);
   const themeController = createThemeController(themeToggle, renderIcons);
+  screenshotController = createScreenshotController(
+    {
+      captureButton: captureScreenshotButton,
+      replaceButton: replaceScreenshotButton,
+      removeButton: removeScreenshotButton,
+      preview: screenshotPreview,
+      details: screenshotDetails,
+      feedback: screenshotFeedback,
+    },
+    setStatus,
+    {
+      getLocator: () => elementController?.getCurrentLocator() ?? null,
+      getLocatorBounds,
+    },
+  );
 
   const settingsMenuController = createSettingsMenu(
     {
@@ -161,6 +185,9 @@ export function startPopup(): void {
       Boolean(
         resourceController.getSelectedApplicationId() && resourceController.getSelectedStageId(),
       ),
+    (tabId) => {
+      void browser.storage.local.set({ lastPopupTab: tabId });
+    },
   );
   elementController = createElementController(
     {
@@ -175,6 +202,7 @@ export function startPopup(): void {
       locatorCssOutput,
       locatorXpathOutput,
       copyLocatorFeedback,
+      retryScreenshotButton,
       elementTypeInput,
       elementLabelInput,
       createElementButton,
@@ -187,6 +215,9 @@ export function startPopup(): void {
       putElement,
       validateLocator,
       getExistingElements: resourceController.getExistingElements,
+      getScreenshot: () => screenshotController.getState()?.blob ?? null,
+      clearScreenshot: screenshotController.clear,
+      uploadScreenshot: uploadElementScreenshot,
       saveSettings,
       setStatus,
     },
@@ -226,6 +257,7 @@ export function startPopup(): void {
     bindEvents();
     await themeController.restore();
     renderIcons();
+    await restorePopupTab();
     await restoreSettings();
     await restoreSelectedLocator();
     elementController.refreshSelectedLocator();
@@ -255,6 +287,10 @@ export function startPopup(): void {
       });
     });
     copyLocatorButton.addEventListener('click', elementController.copyLocator);
+    captureScreenshotButton.addEventListener('click', screenshotController.capture);
+    replaceScreenshotButton.addEventListener('click', screenshotController.replace);
+    removeScreenshotButton.addEventListener('click', screenshotController.remove);
+    retryScreenshotButton.addEventListener('click', elementController.retryScreenshotUpload);
     editLocatorButton.addEventListener('click', elementController.editLocator);
     validateLocatorButton.addEventListener('click', elementController.validateCurrentLocator);
     locatorOutput.addEventListener('input', elementController.handleLocatorInput);
@@ -315,15 +351,20 @@ export function startPopup(): void {
       tokenPanelController.setExpiringStatus('Connected', 'success');
       authController.scheduleTokenRefresh();
       await resourceController.loadApplicationStages();
-      tabController.activate('target');
+      await restorePopupTab();
       return;
     }
 
     if (authController.canRefreshToken()) {
       tokenPanelController.setStatus('Refreshing token...', 'pending');
       await authController.refreshAccessToken('Connected');
-      tabController.activate('target');
+      await restorePopupTab();
     }
+  }
+
+  async function restorePopupTab(): Promise<void> {
+    const result = await storageGet<{ lastPopupTab?: TabId }>('lastPopupTab');
+    tabController.restore(result.lastPopupTab ?? 'target');
   }
 
   async function restoreSelectedLocator(): Promise<void> {
