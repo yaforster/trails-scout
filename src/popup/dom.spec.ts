@@ -31,6 +31,7 @@ const buttonIds = [
   'targetTab',
   'elementTab',
   'settingsButton',
+  'themeToggle',
   'deleteTokenButton',
 ];
 

@@ -61,6 +61,7 @@ export function getPopupElements() {
     elementPanel: requiredElement<HTMLElement>('elementPanel'),
     settingsMenuContainer: requiredElement<HTMLDivElement>('settingsMenuContainer'),
     settingsButton: requiredButton('settingsButton'),
+    themeToggle: requiredButton('themeToggle'),
     settingsMenu: requiredElement<HTMLDivElement>('settingsMenu'),
     deleteTokenButton: requiredButton('deleteTokenButton'),
   };

@@ -24,6 +24,7 @@ export function createConnectionSettings(
       'keycloakUrl',
       'clientId',
       'clientSecret',
+      'theme',
       'selectedApplicationId',
       'selectedStageId',
       'accessToken',

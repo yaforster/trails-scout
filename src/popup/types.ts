@@ -1,4 +1,5 @@
 export type StatusType = 'idle' | 'success' | 'error';
+export type Theme = 'light' | 'dark';
 export type TokenStatusType = 'pending' | 'success' | 'error';
 export type TabId = 'auth' | 'target' | 'element';
 export type LocatorType = 'CSS' | 'XPATH';
@@ -25,6 +26,7 @@ export interface SelectedLocator {
 }
 
 export interface PopupSettings {
+  theme?: Theme;
   trailsServiceUrl?: string;
   keycloakUrl?: string;
   clientId?: string;

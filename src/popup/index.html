@@ -20,16 +20,26 @@
             ></i>
             <span id="tokenFeedbackText"></span>
           </div>
+          <button
+            aria-label="Switch to dark mode"
+            aria-pressed="false"
+            class="secondary icon-button theme-toggle"
+            id="themeToggle"
+            title="Switch to dark mode"
+            type="button"
+          >
+            <i aria-hidden="true" class="icon" data-lucide="moon"></i>
+          </button>
           <div class="settings-menu-container" id="settingsMenuContainer">
             <button
               aria-expanded="false"
               aria-haspopup="menu"
+              aria-label="Open settings"
               class="secondary icon-button"
               id="settingsButton"
-              title="Settings"
               type="button"
             >
-              <i class="icon" data-lucide="settings"></i>
+              <i aria-hidden="true" class="icon" data-lucide="settings"></i>
             </button>
             <div class="settings-menu" hidden id="settingsMenu" role="menu">
               <button
@@ -57,12 +67,9 @@
           type="button"
         >
           <i class="icon" data-lucide="key-round"></i>
-          <span>Connection</span>
+          <span class="menu-copy">Connect</span>
         </button>
-        <span
-          class="menu-tooltip"
-          data-tooltip="Log in and fetch a token to unlock application selection."
-        >
+        <span class="menu-tooltip">
           <button
             aria-controls="targetPanel"
             aria-disabled="true"
@@ -75,13 +82,13 @@
             type="button"
           >
             <i class="icon" data-lucide="layers"></i>
-            <span>Application</span>
+            <span class="menu-copy">
+              <span>Target</span>
+              <small>Log in to unlock targeting.</small>
+            </span>
           </button>
         </span>
-        <span
-          class="menu-tooltip"
-          data-tooltip="Select an application and stage to unlock element creation."
-        >
+        <span class="menu-tooltip">
           <button
             aria-controls="elementPanel"
             aria-disabled="true"
@@ -94,12 +101,20 @@
             type="button"
           >
             <i class="icon" data-lucide="crosshair"></i>
-            <span>Element</span>
+            <span class="menu-copy">
+              <span>Capture</span>
+              <small>Select application and stage first.</small>
+            </span>
           </button>
         </span>
       </nav>
 
-      <section class="panel tab-panel active" id="authPanel" role="tabpanel">
+      <section
+        aria-labelledby="authTab"
+        class="panel tab-panel active"
+        id="authPanel"
+        role="tabpanel"
+      >
         <div class="panel-heading">
           <h2>Connection</h2>
         </div>
@@ -111,9 +126,9 @@
         <div class="input-action-row">
           <input id="trailsServiceUrl" type="url" value="" />
           <button
+            aria-label="Test Trails connection"
             class="secondary square-button"
             id="testTrailsConnectionButton"
-            title="Test Trails connection"
             type="button"
           >
             <i class="icon" data-lucide="cloud-check"></i>
@@ -173,14 +188,20 @@
         </div>
       </section>
 
-      <section class="panel tab-panel" hidden id="targetPanel" role="tabpanel">
+      <section
+        aria-labelledby="targetTab"
+        class="panel tab-panel"
+        hidden
+        id="targetPanel"
+        role="tabpanel"
+      >
         <div class="panel-heading">
           <h2>Application and stage</h2>
           <button
+            aria-label="Refresh applications and stages"
             class="secondary icon-button"
             disabled
             id="refreshResourcesButton"
-            title="Refresh resources"
             type="button"
           >
             <i class="icon" data-lucide="refresh-cw"></i>
@@ -203,7 +224,13 @@
         </div>
       </section>
 
-      <section class="panel tab-panel" hidden id="elementPanel" role="tabpanel">
+      <section
+        aria-labelledby="elementTab"
+        class="panel tab-panel"
+        hidden
+        id="elementPanel"
+        role="tabpanel"
+      >
         <div class="panel-heading">
           <h2>Element</h2>
           <button class="secondary" id="startInspectorButton" type="button">

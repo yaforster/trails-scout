@@ -18,6 +18,7 @@ import { createSettingsMenu } from './settings-menu';
 import { createTabController } from './tabs';
 import { createTokenPanelController } from './token-panel-controller';
 import { TokenSession } from './token-session';
+import { createThemeController } from './theme-controller';
 import type { SelectedLocator } from './types';
 import { createStatusView } from './status-view';
 import { isSelectedLocatorMessage, storageGet } from './utils';
@@ -64,8 +65,10 @@ export function startPopup(): void {
     settingsButton,
     settingsMenu,
     deleteTokenButton,
+    themeToggle,
   } = getPopupElements();
   const setStatus = createStatusView(statusElement);
+  const themeController = createThemeController(themeToggle, renderIcons);
 
   const settingsMenuController = createSettingsMenu(
     {
@@ -191,8 +194,9 @@ export function startPopup(): void {
 
   async function initializePopup(): Promise<void> {
     renderElementTypes();
-    renderIcons();
     bindEvents();
+    await themeController.restore();
+    renderIcons();
     await restoreSettings();
     await restoreSelectedLocator();
     elementController.refreshSelectedLocator();

@@ -11,10 +11,12 @@ import {
   Layers,
   LoaderCircle,
   LogIn,
+  Moon,
   RefreshCw,
   Send,
   Settings,
   Trash2,
+  Sun,
 } from 'lucide';
 
 export function renderIcons(): void {
@@ -31,9 +33,11 @@ export function renderIcons(): void {
       Layers,
       LoaderCircle,
       LogIn,
+      Moon,
       RefreshCw,
       Send,
       Settings,
+      Sun,
       Trash2,
     },
   });
