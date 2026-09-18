@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildAuthorizationHeaders, fetchAllPages, putElement, testHealthEndpoint } from './api';
+import {
+  buildAuthorizationHeaders,
+  fetchAllPages,
+  fetchAllPagesWithLinks,
+  putElement,
+  resolveResourceLink,
+  testHealthEndpoint,
+} from './api';
 import type { ElementDefinition, PagedResource, PersistedElement } from './types';
 
 vi.mock('webextension-polyfill', () => ({
@@ -153,7 +160,11 @@ describe('popup api', () => {
         locatorType: 'CSS',
       };
 
-      await putElement('https://trails.local', '7', '8', definition, 'access-token');
+      await putElement(
+        'https://trails.local/api/applications/7/stages/8/elements',
+        definition,
+        'access-token',
+      );
 
       expect(fetchSpy).toHaveBeenCalledWith(
         'https://trails.local/api/applications/7/stages/8/elements',
@@ -172,9 +183,7 @@ describe('popup api', () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse<PersistedElement>({ id: 42 }));
 
       const result = await putElement(
-        'https://trails.local',
-        '7',
-        '8',
+        'https://trails.local/api/applications/7/stages/8/elements',
         {
           type: 'BUTTON',
           label: 'Checkout',
@@ -198,9 +207,7 @@ describe('popup api', () => {
       );
 
       const result = putElement(
-        'https://trails.local',
-        '7',
-        '8',
+        'https://trails.local/api/applications/7/stages/8/elements',
         {
           type: 'BUTTON',
           label: 'Checkout',
@@ -212,5 +219,50 @@ describe('popup api', () => {
 
       await expect(result).rejects.toThrow('Element label already exists.');
     });
+  });
+
+  it('follows advertised next links and preserves link query parameters', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: ['one'],
+          totalPages: 2,
+          _links: { next: { href: '/api/items?page=1&size=25' } },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ items: ['two'], totalPages: 2, _links: {} }));
+
+    await expect(
+      fetchAllPagesWithLinks('https://trails.local/api/items', 25, null),
+    ).resolves.toEqual(expect.objectContaining({ items: ['one', 'two'] }));
+    expect(fetchSpy.mock.calls[1][0]).toBe('https://trails.local/api/items?page=1&size=25');
+  });
+
+  it('resolves relative links and rejects unsafe or unsupported links', () => {
+    expect(
+      resolveResourceLink(
+        'https://trails.local',
+        { _links: { stages: { href: '/api/applications/1/stages' } } },
+        'stages',
+        'GET',
+      ),
+    ).toBe('https://trails.local/api/applications/1/stages');
+    expect(() =>
+      resolveResourceLink(
+        'https://trails.local',
+        { _links: { stages: { href: 'https://evil.local/stages' } } },
+        'stages',
+        'GET',
+      ),
+    ).toThrow('outside the Trails service');
+    expect(() =>
+      resolveResourceLink(
+        'https://trails.local',
+        { _links: { create: { href: '/api/elements', method: 'GET' } } },
+        'create',
+        'PUT',
+      ),
+    ).toThrow('does not support PUT');
   });
 });

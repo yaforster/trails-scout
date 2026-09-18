@@ -1,5 +1,5 @@
 import browser from 'webextension-polyfill';
-import { fetchAllPages, putElement } from './api';
+import { fetchAllPages, fetchAllPagesWithLinks, putElement } from './api';
 import { type AuthController, createAuthController } from './auth-controller';
 import {
   elementTypes,
@@ -107,6 +107,7 @@ export function startPopup(): void {
       pageSize: resourcePageSize,
       getAccessToken: () => tokenSession.accessToken,
       fetchAllPages,
+      fetchAllPagesWithLinks,
       saveSettings,
       setStatus,
       refreshTabAvailability,
@@ -117,6 +118,7 @@ export function startPopup(): void {
     {
       getSelectedApplicationId: resourceController.getSelectedApplicationId,
       getSelectedStageId: resourceController.getSelectedStageId,
+      getCreateElementHref: resourceController.getCreateElementHref,
       restoreSelection: resourceController.restoreSelection,
       restoreToken: (settings) => tokenSession.restore(settings),
     },

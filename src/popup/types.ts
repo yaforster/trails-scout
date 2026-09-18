@@ -53,17 +53,28 @@ export interface PersistedElement {
 export interface ApplicationResource {
   id?: number;
   label?: string;
+  _links?: ResourceLinks;
 }
 
 export interface StageResource {
   id?: number;
   label?: string;
+  _links?: ResourceLinks;
 }
 
 export interface PagedResource<T> {
   items?: T[];
   totalPages?: number;
+  _links?: ResourceLinks;
 }
+
+export interface ResourceLink {
+  href?: string;
+  method?: string;
+  templated?: boolean;
+}
+
+export type ResourceLinks = Record<string, ResourceLink | undefined>;
 
 export interface KeycloakTokenResponse {
   access_token?: string;

@@ -1,9 +1,11 @@
+import { resolveResourceLink } from './api';
 import type { ApplicationResource, StageResource, StatusType } from './types';
 import { hasId, readErrorMessage, trimTrailingSlash } from './utils';
 
 export interface ApplicationStageEntry {
   application: ApplicationResource;
   stages: StageResource[];
+  createElementHref: string;
 }
 
 interface ResourceControllerElements {
@@ -17,6 +19,11 @@ interface ResourceControllerDependencies {
   pageSize: number;
   getAccessToken(): string | null;
   fetchAllPages<T>(baseUrl: string, pageSize: number, accessToken: string | null): Promise<T[]>;
+  fetchAllPagesWithLinks<T>(
+    baseUrl: string,
+    pageSize: number,
+    accessToken: string | null,
+  ): Promise<{ items: T[]; links: Record<string, { href?: string; method?: string } | undefined> }>;
   saveSettings(): Promise<void>;
   setStatus(message: string, type?: StatusType): void;
   refreshTabAvailability(): void;
@@ -31,6 +38,7 @@ export interface ResourceController {
   clearCache(): void;
   getSelectedApplicationId(): string | null;
   getSelectedStageId(): string | null;
+  getCreateElementHref(): string | null;
 }
 
 export function createResourceController(
@@ -48,6 +56,7 @@ export function createResourceController(
     pageSize,
     getAccessToken,
     fetchAllPages,
+    fetchAllPagesWithLinks,
     saveSettings,
     setStatus,
     refreshTabAvailability,
@@ -79,14 +88,21 @@ export function createResourceController(
         accessToken,
       );
       applicationStageCache = await Promise.all(
-        applications.filter(hasId).map(async (application) => ({
-          application,
-          stages: await fetchAllPages<StageResource>(
-            `${trailsServiceUrl}/api/applications/${application.id}/stages?includeRetired=false`,
+        applications.filter(hasId).map(async (application) => {
+          const stagesHref = resolveResourceLink(trailsServiceUrl, application, 'stages', 'GET');
+          const stages = await fetchAllPagesWithLinks<StageResource>(
+            stagesHref,
             pageSize,
             accessToken,
-          ),
-        })),
+          );
+          const createElementHref = resolveResourceLink(
+            trailsServiceUrl,
+            { _links: stages.links },
+            'create',
+            'PUT',
+          );
+          return { application, stages: stages.items, createElementHref };
+        }),
       );
       renderApplications();
       refreshResourcesButton.disabled = false;
@@ -132,6 +148,13 @@ export function createResourceController(
 
   function getSelectedStageId(): string | null {
     return selectedStageId;
+  }
+
+  function getCreateElementHref(): string | null {
+    const application = applicationStageCache.find(
+      (entry) => String(entry.application.id) === selectedApplicationId,
+    );
+    return application?.createElementHref ?? null;
   }
 
   function renderApplications(): void {
@@ -229,5 +252,6 @@ export function createResourceController(
     clearCache,
     getSelectedApplicationId,
     getSelectedStageId,
+    getCreateElementHref,
   };
 }

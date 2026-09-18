@@ -16,16 +16,34 @@ function createHarness(accessToken: string | null = 'access-token') {
   const refreshResourcesButton = document.getElementById(
     'refreshResourcesButton',
   ) as HTMLButtonElement;
-  const fetchAllPages = vi.fn(async <T>(url: string): Promise<T[]> => {
+  const fetchAllPages = vi.fn(
+    async <T>(): Promise<T[]> =>
+      [
+        {
+          id: 1,
+          label: 'Shop',
+          _links: { stages: { href: '/api/applications/1/stages?includeRetired=false' } },
+        },
+        {
+          id: 2,
+          label: 'Checkout',
+          _links: { stages: { href: '/api/applications/2/stages?includeRetired=false' } },
+        },
+        { label: 'Missing id' },
+      ] as T[],
+  );
+  const fetchAllPagesWithLinks = vi.fn(async <T>(url: string) => {
     if (url.includes('/api/applications/1/stages')) {
-      return [{ id: 10, label: 'Production' }] as T[];
+      return {
+        items: [{ id: 10, label: 'Production', _links: {} }] as T[],
+        links: { create: { href: '/api/applications/1/stages/10/elements', method: 'PUT' } },
+      };
     }
 
-    if (url.includes('/api/applications/2/stages')) {
-      return [{ id: 20, label: 'Staging' }] as T[];
-    }
-
-    return [{ id: 1, label: 'Shop' }, { id: 2, label: 'Checkout' }, { label: 'Missing id' }] as T[];
+    return {
+      items: [{ id: 20, label: 'Staging', _links: {} }] as T[],
+      links: { create: { href: '/api/applications/2/stages/20/elements', method: 'PUT' } },
+    };
   });
   const saveSettings = vi.fn().mockResolvedValue(undefined);
   const setStatus = vi.fn();
@@ -41,6 +59,7 @@ function createHarness(accessToken: string | null = 'access-token') {
       pageSize: 50,
       getAccessToken: () => accessToken,
       fetchAllPages,
+      fetchAllPagesWithLinks,
       saveSettings,
       setStatus,
       refreshTabAvailability,
@@ -51,6 +70,7 @@ function createHarness(accessToken: string | null = 'access-token') {
     applicationSelect,
     controller,
     fetchAllPages,
+    fetchAllPagesWithLinks,
     refreshResourcesButton,
     refreshTabAvailability,
     saveSettings,

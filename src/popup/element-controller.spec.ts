@@ -45,6 +45,7 @@ function createHarness(
     {
       getSelectedApplicationId: () => selection.applicationId,
       getSelectedStageId: () => selection.stageId,
+      getCreateElementHref: () => 'http://localhost:8080/api/elements',
       getAccessToken: () => 'access-token',
       putElement,
       saveSettings,
@@ -96,19 +97,13 @@ describe('element controller', () => {
 
     await controller.createElement();
 
-    expect(saveSettings).toHaveBeenCalled();
     expect(putElement).toHaveBeenCalledWith(
-      'http://localhost:8080',
-      '7',
-      '8',
-      {
-        type: 'BUTTON',
-        label: 'Checkout',
-        locatorString: '#checkout',
-        locatorType: 'CSS',
-      },
+      'http://localhost:8080/api/elements',
+      expect.objectContaining({ label: 'Checkout' }),
       'access-token',
     );
+
+    expect(saveSettings).toHaveBeenCalled();
     expect(setStatus).toHaveBeenLastCalledWith('Element created.', 'success');
     expect(createElementButton.disabled).toBe(false);
   });

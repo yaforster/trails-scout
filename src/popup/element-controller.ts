@@ -6,7 +6,6 @@ import type {
   SelectedLocator,
   StatusType,
 } from './types';
-import { trimTrailingSlash } from './utils';
 
 interface ElementControllerElements {
   trailsServiceUrlInput: HTMLInputElement;
@@ -20,11 +19,10 @@ interface ElementControllerElements {
 interface ElementControllerDependencies {
   getSelectedApplicationId(): string | null;
   getSelectedStageId(): string | null;
+  getCreateElementHref(): string | null;
   getAccessToken(): string | null;
   putElement(
-    trailsServiceUrl: string,
-    applicationId: string,
-    stageId: string,
+    createElementHref: string,
     definition: ElementDefinition,
     accessToken: string | null,
   ): Promise<unknown>;
@@ -58,6 +56,7 @@ export function createElementController(
   const {
     getSelectedApplicationId,
     getSelectedStageId,
+    getCreateElementHref,
     getAccessToken,
     putElement,
     saveSettings,
@@ -70,12 +69,16 @@ export function createElementController(
       return;
     }
 
-    const trailsServiceUrl = trimTrailingSlash(trailsServiceUrlInput.value);
     const applicationId = getSelectedApplicationId();
     const stageId = getSelectedStageId();
+    const createElementHref = getCreateElementHref();
 
-    if (!trailsServiceUrl || !applicationId || !stageId) {
+    if (!trailsServiceUrlInput.value.trim() || !applicationId || !stageId) {
       setStatus('Trails service URL and application stage selection are required.', 'error');
+      return;
+    }
+    if (!createElementHref) {
+      setStatus('Trails service does not advertise element creation.', 'error');
       return;
     }
 
@@ -84,7 +87,7 @@ export function createElementController(
 
     try {
       await saveSettings();
-      await putElement(trailsServiceUrl, applicationId, stageId, definition, getAccessToken());
+      await putElement(createElementHref, definition, getAccessToken());
       setStatus('Element created.', 'success');
     } catch (error) {
       setStatus(String(error), 'error');

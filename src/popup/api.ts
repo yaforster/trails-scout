@@ -1,4 +1,10 @@
-import type { ElementDefinition, PagedResource, PersistedElement } from './types';
+import type {
+  ElementDefinition,
+  PagedResource,
+  PersistedElement,
+  ResourceLink,
+  ResourceLinks,
+} from './types';
 import { readErrorMessage, readJsonResponse } from './utils';
 
 export async function fetchAllPages<T>(
@@ -6,16 +12,74 @@ export async function fetchAllPages<T>(
   pageSize: number,
   accessToken: string | null,
 ): Promise<T[]> {
-  const firstPage = await fetchPage<T>(buildPageUrl(baseUrl, 0, pageSize), accessToken);
-  const totalPages = firstPage.totalPages;
-  const items = [...firstPage.items];
+  return (await fetchAllPagesWithLinks(baseUrl, pageSize, accessToken)).items;
+}
 
-  for (let page = 1; page < totalPages; page++) {
-    const nextPage = await fetchPage<T>(buildPageUrl(baseUrl, page, pageSize), accessToken);
-    items.push(...nextPage.items);
+export async function fetchAllPagesWithLinks<T>(
+  baseUrl: string,
+  pageSize: number,
+  accessToken: string | null,
+): Promise<{ items: T[]; links: ResourceLinks }> {
+  let pageUrl = buildPageUrl(baseUrl, 0, pageSize);
+  let pageNumber = 0;
+  const items: T[] = [];
+  let links: ResourceLinks = {};
+
+  while (true) {
+    const page = await fetchPage<T>(pageUrl, accessToken);
+    items.push(...page.items);
+    const pageLinks = page._links ?? {};
+    links = { ...links, ...pageLinks };
+
+    const nextHref = pageLinks.next?.href?.trim();
+    if (nextHref) {
+      pageUrl = resolveLink(baseUrl, { href: nextHref }, 'next', 'GET');
+      pageNumber += 1;
+      continue;
+    }
+
+    if (pageNumber + 1 >= page.totalPages) {
+      return { items, links };
+    }
+
+    pageNumber += 1;
+    pageUrl = buildPageUrl(baseUrl, pageNumber, pageSize);
+  }
+}
+
+export function resolveResourceLink(
+  serviceUrl: string,
+  resource: { _links?: ResourceLinks } | undefined,
+  relation: string,
+  expectedMethod: string,
+): string {
+  const link = resource?._links?.[relation];
+  return resolveLink(serviceUrl, link, relation, expectedMethod);
+}
+
+function resolveLink(
+  serviceUrl: string,
+  link: ResourceLink | undefined,
+  relation: string,
+  expectedMethod: string,
+): string {
+  if (!link?.href?.trim()) {
+    throw new Error(`Resource link "${relation}" is unavailable.`);
+  }
+  if (link.templated || link.href.includes('{')) {
+    throw new Error(`Resource link "${relation}" is templated and cannot be followed.`);
+  }
+  if (link.method && link.method.toUpperCase() !== expectedMethod.toUpperCase()) {
+    throw new Error(`Resource link "${relation}" does not support ${expectedMethod}.`);
   }
 
-  return items;
+  const base = new URL(serviceUrl);
+  const resolved = new URL(link.href.trim(), base);
+  if (resolved.origin !== base.origin) {
+    throw new Error(`Resource link "${relation}" points outside the Trails service.`);
+  }
+
+  return resolved.toString();
 }
 
 export async function testHealthEndpoint(
@@ -29,20 +93,15 @@ export async function testHealthEndpoint(
 }
 
 export async function putElement(
-  trailsServiceUrl: string,
-  applicationId: string,
-  stageId: string,
+  createElementHref: string,
   definition: ElementDefinition,
   accessToken: string | null,
 ): Promise<PersistedElement> {
-  const response = await fetch(
-    `${trailsServiceUrl}/api/applications/${applicationId}/stages/${stageId}/elements`,
-    {
-      method: 'PUT',
-      headers: buildJsonHeaders(accessToken),
-      body: JSON.stringify(definition),
-    },
-  );
+  const response = await fetch(createElementHref, {
+    method: 'PUT',
+    headers: buildJsonHeaders(accessToken),
+    body: JSON.stringify(definition),
+  });
 
   const result = await readJsonResponse<PersistedElement>(response);
   if (!response.ok) {
