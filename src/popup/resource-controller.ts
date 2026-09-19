@@ -6,7 +6,6 @@ import { hasId, readErrorMessage, trimTrailingSlash } from './utils';
 export interface ApplicationStageEntry {
   application: ApplicationResource;
   stages: StageResource[];
-  createElementHref: string;
 }
 
 interface ResourceControllerElements {
@@ -103,13 +102,7 @@ export function createResourceController(
             pageSize,
             accessToken,
           );
-          const createElementHref = resolveResourceLink(
-            trailsServiceUrl,
-            { _links: stages.links },
-            'create',
-            'PUT',
-          );
-          return { application, stages: stages.items, createElementHref };
+          return { application, stages: stages.items };
         }),
       );
       renderApplications();
@@ -191,10 +184,12 @@ export function createResourceController(
   }
 
   function getCreateElementHref(): string | null {
-    const application = applicationStageCache.find(
-      (entry) => String(entry.application.id) === selectedApplicationId,
-    );
-    return application?.createElementHref ?? null;
+    const target = getTargetContext();
+    if (!target) {
+      return null;
+    }
+    const serviceUrl = trimTrailingSlash(trailsServiceUrlInput.value);
+    return `${serviceUrl}/api/applications/${target.applicationId}/stages/${target.stageId}/elements`;
   }
 
   function getTargetContext(): QueueTarget | null {
@@ -215,10 +210,10 @@ export function createResourceController(
   }
 
   async function getExistingElements(): Promise<ElementResource[]> {
-    const entry = applicationStageCache.find(
-      (candidate) => String(candidate.application.id) === selectedApplicationId,
+    const application = applicationStageCache.find(
+      (entry) => String(entry.application.id) === selectedApplicationId,
     );
-    const stage = entry?.stages.find((candidate) => String(candidate.id) === selectedStageId);
+    const stage = application?.stages.find((candidate) => String(candidate.id) === selectedStageId);
     if (!stage) {
       return [];
     }

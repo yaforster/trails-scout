@@ -68,14 +68,18 @@ describe('content inspector', () => {
 
     expect(browserMock.storageSet).toHaveBeenCalledWith({
       lastSelectedElement: expect.objectContaining({
-        cssSelector: '#checkout',
-        xpath: `//*[@id="checkout"]`,
+        candidates: expect.arrayContaining([
+          { locatorType: 'CSS', locatorString: '#checkout', strategy: 'ID' },
+          { locatorType: 'XPATH', locatorString: `//*[@id='checkout']`, strategy: 'ID' },
+        ]),
       }),
     });
     expect(browserMock.sendMessage).toHaveBeenCalledWith({
       type: 'TRAILS_ELEMENT_SELECTED',
-      cssSelector: '#checkout',
-      xpath: `//*[@id="checkout"]`,
+      candidates: expect.arrayContaining([
+        { locatorType: 'CSS', locatorString: '#checkout', strategy: 'ID' },
+        { locatorType: 'XPATH', locatorString: `//*[@id='checkout']`, strategy: 'ID' },
+      ]),
     });
     expect(writeText).toHaveBeenCalledWith('#checkout');
   });

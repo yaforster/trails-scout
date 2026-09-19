@@ -16,13 +16,9 @@ const inputIds = [
   'clientId',
   'clientSecret',
   'elementLabel',
-  'locatorCssOutput',
-  'locatorXpathOutput',
-  'locatorCssFeedback',
-  'locatorXpathFeedback',
 ];
 
-const selectIds = ['applicationSelect', 'stageSelect', 'locatorType', 'elementType'];
+const selectIds = ['applicationSelect', 'stageSelect', 'locatorCandidate', 'elementType'];
 
 const buttonIds = [
   'refreshResourcesButton',
@@ -115,9 +111,9 @@ describe('popup DOM helpers', () => {
   });
 
   it('returns typed select elements', () => {
-    document.body.innerHTML = `<select id="locatorType"></select>`;
+    document.body.innerHTML = `<select id="locatorCandidate"></select>`;
 
-    expect(requiredSelect('locatorType')).toBeInstanceOf(HTMLSelectElement);
+    expect(requiredSelect('locatorCandidate')).toBeInstanceOf(HTMLSelectElement);
   });
 
   it('returns typed button elements', () => {

@@ -41,14 +41,26 @@ function createHarness(accessToken: string | null = 'access-token') {
   const fetchAllPagesWithLinks = vi.fn(async <T>(url: string) => {
     if (url.includes('/api/applications/1/stages')) {
       return {
-        items: [{ id: 10, label: 'Production', _links: {} }] as T[],
-        links: { create: { href: '/api/applications/1/stages/10/elements', method: 'PUT' } },
+        items: [
+          {
+            id: 10,
+            label: 'Production',
+            _links: {},
+          },
+        ] as T[],
+        links: { create: { href: '/api/applications/1/stages', method: 'PUT' } },
       };
     }
 
     return {
-      items: [{ id: 20, label: 'Staging', _links: {} }] as T[],
-      links: { create: { href: '/api/applications/2/stages/20/elements', method: 'PUT' } },
+      items: [
+        {
+          id: 20,
+          label: 'Staging',
+          _links: {},
+        },
+      ] as T[],
+      links: { create: { href: '/api/applications/2/stages', method: 'PUT' } },
     };
   });
   const saveSettings = vi.fn().mockResolvedValue(undefined);
@@ -142,6 +154,9 @@ describe('resource controller', () => {
     expect(stageSelect.value).toBe('10');
     expect(controller.getSelectedApplicationId()).toBe('1');
     expect(controller.getSelectedStageId()).toBe('10');
+    expect(controller.getCreateElementHref()).toBe(
+      'http://localhost:8080/api/applications/1/stages/10/elements',
+    );
     expect(targetSummary.textContent).toBe('Target: Shop / Production');
     expect(elementTargetSummary.textContent).toBe('Target: Shop / Production');
     expect(saveSettings).toHaveBeenCalled();
@@ -159,6 +174,18 @@ describe('resource controller', () => {
     expect(controller.getSelectedStageId()).toBe('20');
   });
 
+  it('skips duplicate lookup when selected stage has no elements link', async () => {
+    const { controller, fetchAllPages } = createHarness();
+    await controller.loadApplicationStages();
+
+    await expect(controller.getExistingElements()).resolves.toEqual([]);
+
+    expect(controller.getCreateElementHref()).toBe(
+      'http://localhost:8080/api/applications/1/stages/10/elements',
+    );
+    expect(fetchAllPages).toHaveBeenCalledTimes(1);
+  });
+
   it('updates stages when the selected application changes', async () => {
     const { applicationSelect, controller, stageSelect } = createHarness();
     await controller.loadApplicationStages();
@@ -169,6 +196,9 @@ describe('resource controller', () => {
     expect(stageSelect.value).toBe('20');
     expect([...stageSelect.options].map((option) => option.textContent)).toEqual(['Staging']);
     expect(controller.getSelectedApplicationId()).toBe('2');
+    expect(controller.getCreateElementHref()).toBe(
+      'http://localhost:8080/api/applications/2/stages/20/elements',
+    );
   });
 
   it('reports load failures and restores the refresh button', async () => {

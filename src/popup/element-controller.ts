@@ -1,11 +1,12 @@
-import { resolveResourceLink } from './api';
 import type { QueueCandidate, QueueItem, QueueTarget } from './queue-controller';
-import { locatorStringFor, toElementDefinition } from './token-utils';
+import { toElementDefinition } from './token-utils';
 import type { LocatorValidationResult } from '../locator-selectors';
+import { trimTrailingSlash } from './utils';
 import type {
   ElementDefinition,
   ElementType,
   ElementResource,
+  LocatorCandidate,
   LocatorType,
   PersistedElement,
   SelectedLocator,
@@ -14,14 +15,10 @@ import type {
 
 interface ElementControllerElements {
   trailsServiceUrlInput: HTMLInputElement;
-  locatorTypeInput: HTMLSelectElement;
+  locatorCandidateInput: HTMLSelectElement;
   locatorOutput: HTMLTextAreaElement;
-  locatorCssOutput?: HTMLInputElement;
-  locatorXpathOutput?: HTMLInputElement;
   copyLocatorFeedback?: HTMLElement;
   locatorValidationFeedback?: HTMLElement;
-  locatorCssFeedback?: HTMLElement;
-  locatorXpathFeedback?: HTMLElement;
   editLocatorButton?: HTMLButtonElement;
   validateLocatorButton?: HTMLButtonElement;
   retryScreenshotButton?: HTMLButtonElement;
@@ -65,6 +62,7 @@ export interface ElementController {
   refreshSelectedLocator(): void;
   restoreSelectedLocator(locator: SelectedLocator | null): void;
   setSelectedLocator(locator: SelectedLocator): void;
+  selectLocatorCandidate(): void;
   refreshCreateAvailability(): void;
   validateCurrentLocator(): Promise<void>;
   editLocator(): void;
@@ -78,6 +76,7 @@ export function createElementController(
   dependencies: ElementControllerDependencies,
 ): ElementController {
   let selectedLocator: SelectedLocator | null = null;
+  let activeCandidateIndex = 0;
   let requestActive = false;
   let validation: LocatorValidationResult | null = null;
   let creationComplete = false;
@@ -85,14 +84,10 @@ export function createElementController(
 
   const {
     trailsServiceUrlInput,
-    locatorTypeInput,
+    locatorCandidateInput,
     locatorOutput,
-    locatorCssOutput,
-    locatorXpathOutput,
     copyLocatorFeedback,
     locatorValidationFeedback,
-    locatorCssFeedback,
-    locatorXpathFeedback,
     editLocatorButton,
     validateLocatorButton,
     retryScreenshotButton,
@@ -157,12 +152,14 @@ export function createElementController(
         return;
       }
 
-      const uploadHref = resolveResourceLink(
-        trailsServiceUrlInput.value.trim(),
-        createdElement,
-        'uploadScreenshot',
-        'PUT',
-      );
+      const uploadHref = screenshotUploadHref(createdElement, applicationId, stageId);
+      if (!uploadHref) {
+        setStatus(
+          'Element created; service did not return an element ID for screenshot upload.',
+          'error',
+        );
+        return;
+      }
       pendingScreenshotUpload = { href: uploadHref, blob: screenshot };
       try {
         await uploadScreenshot(uploadHref, screenshot, getAccessToken());
@@ -222,6 +219,18 @@ export function createElementController(
     return (await putElement(createElementHref, definition, getAccessToken())) as PersistedElement;
   }
 
+  function screenshotUploadHref(
+    element: PersistedElement,
+    applicationId: string,
+    stageId: string,
+  ): string | null {
+    const { id } = element;
+    if (typeof id !== 'number' || !Number.isSafeInteger(id) || id < 0) {
+      return null;
+    }
+    return `${trimTrailingSlash(trailsServiceUrlInput.value)}/api/applications/${applicationId}/stages/${stageId}/elements/${id}/screenshot`;
+  }
+
   async function copyLocator(): Promise<void> {
     const locator = currentLocatorString();
     if (!locator) {
@@ -260,9 +269,9 @@ export function createElementController(
   }
 
   function getCurrentLocator(): { locatorType: LocatorType; locatorString: string } | null {
-    const locatorString = currentLocatorString();
-    return locatorString
-      ? { locatorType: locatorTypeInput.value as LocatorType, locatorString }
+    const candidate = activeCandidate();
+    return candidate
+      ? { locatorType: candidate.locatorType, locatorString: candidate.locatorString }
       : null;
   }
 
@@ -276,8 +285,7 @@ export function createElementController(
       return null;
     }
     const result = toElementDefinition(
-      selectedLocator,
-      locatorTypeInput.value as LocatorType,
+      activeCandidate(),
       elementTypeInput.value as ElementType,
       elementLabelInput.value,
     );
@@ -285,13 +293,8 @@ export function createElementController(
   }
 
   function refreshSelectedLocator(): void {
-    locatorOutput.value = currentLocatorString();
-    if (locatorCssOutput) {
-      locatorCssOutput.value = locatorStringFor(selectedLocator, 'CSS');
-    }
-    if (locatorXpathOutput) {
-      locatorXpathOutput.value = locatorStringFor(selectedLocator, 'XPATH');
-    }
+    renderCandidateOptions();
+    locatorOutput.value = activeCandidate()?.locatorString ?? '';
     validation = null;
     setValidationFeedback('Locator requires validation.', 'error');
     refreshCreateAvailability();
@@ -299,28 +302,40 @@ export function createElementController(
 
   function restoreSelectedLocator(locator: SelectedLocator | null): void {
     selectedLocator = locator;
+    activeCandidateIndex = 0;
     validation = null;
   }
 
   function setSelectedLocator(locator: SelectedLocator): void {
     selectedLocator = locator;
+    activeCandidateIndex = 0;
     validation = null;
     creationComplete = false;
     pendingScreenshotUpload = null;
+    locatorOutput.readOnly = true;
+    if (editLocatorButton) {
+      editLocatorButton.disabled = false;
+      editLocatorButton.textContent = 'Edit locator';
+    }
     refreshSelectedLocator();
   }
 
   async function validateCurrentLocator(): Promise<void> {
-    const locatorString = currentLocatorString();
-    if (!locatorString) {
+    const candidate = activeCandidate();
+    if (!candidate) {
       setValidationFeedback('Pick a locator first.', 'error');
       return;
     }
+    const { locatorType, locatorString } = candidate;
     if (validateLocatorButton) {
       validateLocatorButton.disabled = true;
     }
     try {
-      validation = await validateLocator(locatorTypeInput.value as LocatorType, locatorString);
+      const result = await validateLocator(locatorType, locatorString);
+      if (!isActiveLocator(locatorType, locatorString)) {
+        return;
+      }
+      validation = result;
       setValidationFeedback(
         validation.message,
         validation.status === 'unique' ? 'success' : 'error',
@@ -346,14 +361,11 @@ export function createElementController(
   }
 
   function handleLocatorInput(): void {
-    if (!selectedLocator) {
+    const candidate = activeCandidate();
+    if (!candidate) {
       return;
     }
-    if (locatorTypeInput.value === 'XPATH') {
-      selectedLocator.xpath = locatorOutput.value;
-    } else {
-      selectedLocator.cssSelector = locatorOutput.value;
-    }
+    candidate.locatorString = locatorOutput.value;
     validation = null;
     creationComplete = false;
     pendingScreenshotUpload = null;
@@ -392,12 +404,6 @@ export function createElementController(
   }
 
   function setValidationFeedback(message: string, type: 'success' | 'error'): void {
-    const candidateFeedback =
-      locatorTypeInput.value === 'CSS' ? locatorCssFeedback : locatorXpathFeedback;
-    if (candidateFeedback) {
-      candidateFeedback.textContent = message;
-      candidateFeedback.className = `field-feedback ${type}`;
-    }
     if (locatorValidationFeedback) {
       locatorValidationFeedback.textContent = message;
       locatorValidationFeedback.className = `field-feedback ${type}`;
@@ -405,16 +411,17 @@ export function createElementController(
   }
 
   function isCurrentValidation(result: LocatorValidationResult): boolean {
-    return (
-      result.locatorType === locatorTypeInput.value &&
-      result.locatorString === currentLocatorString()
-    );
+    return isActiveLocator(result.locatorType, result.locatorString);
+  }
+
+  function isActiveLocator(locatorType: LocatorType, locatorString: string): boolean {
+    const candidate = activeCandidate();
+    return candidate?.locatorType === locatorType && candidate.locatorString === locatorString;
   }
 
   function readElementDefinition(): ElementDefinition | null {
     const result = toElementDefinition(
-      selectedLocator,
-      locatorTypeInput.value as LocatorType,
+      activeCandidate(),
       elementTypeInput.value as ElementType,
       elementLabelInput.value,
     );
@@ -428,7 +435,46 @@ export function createElementController(
   }
 
   function currentLocatorString(): string {
-    return locatorStringFor(selectedLocator, locatorTypeInput.value as LocatorType);
+    return activeCandidate()?.locatorString ?? '';
+  }
+
+  function activeCandidate(): LocatorCandidate | null {
+    return selectedLocator?.candidates[activeCandidateIndex] ?? null;
+  }
+
+  function selectLocatorCandidate(): void {
+    const index = Number(locatorCandidateInput.value);
+    if (!Number.isInteger(index) || !selectedLocator?.candidates[index]) {
+      return;
+    }
+    activeCandidateIndex = index;
+    locatorOutput.readOnly = true;
+    if (editLocatorButton) {
+      editLocatorButton.disabled = false;
+      editLocatorButton.textContent = 'Edit locator';
+    }
+    refreshSelectedLocator();
+  }
+
+  function renderCandidateOptions(): void {
+    locatorCandidateInput.replaceChildren();
+    for (const [index, candidate] of (selectedLocator?.candidates ?? []).entries()) {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = `${candidate.locatorType}: ${candidate.strategy}`;
+      locatorCandidateInput.appendChild(option);
+    }
+    if (locatorCandidateInput.options.length === 0) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'Pick a page element first';
+      locatorCandidateInput.appendChild(option);
+      locatorCandidateInput.disabled = true;
+      return;
+    }
+    activeCandidateIndex = Math.min(activeCandidateIndex, locatorCandidateInput.options.length - 1);
+    locatorCandidateInput.disabled = false;
+    locatorCandidateInput.value = String(activeCandidateIndex);
   }
 
   return {
@@ -439,6 +485,7 @@ export function createElementController(
     refreshSelectedLocator,
     restoreSelectedLocator,
     setSelectedLocator,
+    selectLocatorCandidate,
     copyLocator,
     refreshCreateAvailability,
     validateCurrentLocator,

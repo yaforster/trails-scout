@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createSelectedElement,
   generateCssSelector,
+  generateLocatorCandidates,
   generateXPath,
   isInspectorMessage,
   looksGenerated,
@@ -110,7 +111,7 @@ describe('locator selectors', () => {
 
     const result = generateCssSelector(document.querySelectorAll('button')[1]);
 
-    expect(result).toBe('main > button.primary:nth-of-type(2)');
+    expect(result).toBe('html > body > main > button.primary:nth-of-type(2)');
   });
 
   it('uses an id as the preferred XPath', () => {
@@ -118,7 +119,7 @@ describe('locator selectors', () => {
 
     const result = generateXPath(document.getElementById('checkout')!);
 
-    expect(result).toBe(`//*[@id="checkout"]`);
+    expect(result).toBe(`//*[@id='checkout']`);
   });
 
   it('builds XPath sibling indexes', () => {
@@ -138,24 +139,91 @@ describe('locator selectors', () => {
     );
 
     expect(result).toEqual({
-      cssSelector: '#checkout',
-      xpath: `//*[@id="checkout"]`,
+      candidates: expect.arrayContaining([
+        { locatorType: 'CSS', locatorString: '#checkout', strategy: 'ID' },
+        { locatorType: 'XPATH', locatorString: `//*[@id='checkout']`, strategy: 'ID' },
+      ]),
       selectedAt: '2026-05-19T20:00:00.000Z',
     });
   });
 
   it('creates the runtime message from a stored element', () => {
     const result = toSelectedElementMessage({
-      cssSelector: '#checkout',
-      xpath: `//*[@id="checkout"]`,
+      candidates: [
+        { locatorType: 'CSS', locatorString: '#checkout', strategy: 'ID' },
+        { locatorType: 'XPATH', locatorString: `//*[@id='checkout']`, strategy: 'ID' },
+      ],
       selectedAt: '2026-05-19T20:00:00.000Z',
     });
 
     expect(result).toEqual({
       type: 'TRAILS_ELEMENT_SELECTED',
-      cssSelector: '#checkout',
-      xpath: `//*[@id="checkout"]`,
+      candidates: [
+        { locatorType: 'CSS', locatorString: '#checkout', strategy: 'ID' },
+        { locatorType: 'XPATH', locatorString: `//*[@id='checkout']`, strategy: 'ID' },
+      ],
     });
+  });
+
+  it('skips duplicate ids and stable attributes for unique structural candidates', () => {
+    document.body.innerHTML = `
+      <main>
+        <button id="save" data-testid="save">First</button>
+        <button id="save" data-testid="save">Second</button>
+      </main>
+    `;
+    const target = document.querySelectorAll('button')[1];
+
+    const candidates = generateLocatorCandidates(target);
+
+    expect(candidates.some((candidate) => candidate.strategy === 'ID')).toBe(false);
+    expect(candidates.some((candidate) => candidate.strategy === 'data-testid')).toBe(false);
+    for (const candidate of candidates) {
+      if (candidate.locatorType === 'CSS') {
+        expect(document.querySelectorAll(candidate.locatorString)).toHaveLength(1);
+        continue;
+      }
+      expect(
+        document.evaluate(
+          candidate.locatorString,
+          document,
+          null,
+          XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+          null,
+        ).snapshotLength,
+      ).toBe(1);
+    }
+  });
+
+  it('escapes special CSS and XPath identifier values', () => {
+    document.body.innerHTML = `<button id='save:now' aria-label='Both " and &apos;'>Save</button>`;
+    const target = document.querySelector('button')!;
+
+    const candidates = generateLocatorCandidates(target);
+
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ locatorType: 'CSS', locatorString: '#save\\:now' }),
+        expect.objectContaining({
+          locatorType: 'XPATH',
+          locatorString: expect.stringContaining('concat('),
+        }),
+      ]),
+    );
+  });
+
+  it('generates unique candidates for SVG elements', () => {
+    document.body.innerHTML = `<svg><circle></circle><circle id="target"></circle></svg>`;
+    const target = document.querySelectorAll('circle')[1];
+
+    const candidates = generateLocatorCandidates(target);
+
+    expect(candidates).toEqual(
+      expect.arrayContaining([
+        { locatorType: 'CSS', locatorString: '#target', strategy: 'ID' },
+        { locatorType: 'XPATH', locatorString: `//*[@id='target']`, strategy: 'ID' },
+      ]),
+    );
   });
 
   it('detects generated-looking classes', () => {

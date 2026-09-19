@@ -1,10 +1,4 @@
-import type {
-  ElementDefinition,
-  ElementType,
-  LocatorType,
-  SelectedLocator,
-  TokenStatusType,
-} from './types';
+import type { ElementDefinition, ElementType, LocatorCandidate, TokenStatusType } from './types';
 
 export type ElementDefinitionValidation =
   | { valid: true; definition: ElementDefinition }
@@ -18,27 +12,14 @@ export function hasUnexpiredToken(
   return Boolean(token && expiresAt && expiresAt > now);
 }
 
-export function locatorStringFor(
-  locator: SelectedLocator | null,
-  locatorType: LocatorType,
-): string {
-  if (!locator) {
-    return '';
-  }
-
-  return locatorType === 'XPATH' ? locator.xpath : locator.cssSelector;
-}
-
 export function toElementDefinition(
-  locator: SelectedLocator | null,
-  locatorType: LocatorType,
+  locator: LocatorCandidate | null,
   elementType: ElementType,
   label: string,
 ): ElementDefinitionValidation {
-  const locatorString = locatorStringFor(locator, locatorType);
   const trimmedLabel = label.trim();
 
-  if (!locator || !locatorString) {
+  if (!locator || !locator.locatorString) {
     return { valid: false, message: 'Pick a locator before creating an element.' };
   }
 
@@ -51,8 +32,8 @@ export function toElementDefinition(
     definition: {
       type: elementType,
       label: trimmedLabel,
-      locatorString,
-      locatorType,
+      locatorString: locator.locatorString,
+      locatorType: locator.locatorType,
     },
   };
 }

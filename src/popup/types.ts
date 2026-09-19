@@ -1,8 +1,11 @@
+import type { LocatorCandidate, LocatorType } from '../locator-selectors';
+
+export type { LocatorCandidate, LocatorType } from '../locator-selectors';
+
 export type StatusType = 'idle' | 'success' | 'error';
 export type Theme = 'light' | 'dark';
 export type TokenStatusType = 'pending' | 'success' | 'error';
 export type TabId = 'auth' | 'target' | 'element';
-export type LocatorType = 'CSS' | 'XPATH';
 
 export type ElementType =
   | 'SELECT'
@@ -20,8 +23,7 @@ export type ElementType =
   | 'WEEK';
 
 export interface SelectedLocator {
-  cssSelector: string;
-  xpath: string;
+  candidates: LocatorCandidate[];
   selectedAt: string;
 }
 

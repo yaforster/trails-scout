@@ -270,10 +270,9 @@
             <select id="elementType"></select>
           </div>
           <div>
-            <label for="locatorType">Locator type</label>
-            <select id="locatorType">
-              <option value="CSS">CSS</option>
-              <option value="XPATH">XPath</option>
+            <label for="locatorCandidate">Locator choice</label>
+            <select disabled id="locatorCandidate">
+              <option value="">Pick a page element first</option>
             </select>
           </div>
         </div>
@@ -293,18 +292,6 @@
             Validate locator
           </button>
           <span aria-live="polite" class="field-feedback" id="locatorValidationFeedback"></span>
-        </div>
-        <div class="locator-choices">
-          <div>
-            <label for="locatorCssOutput">CSS locator (read-only)</label>
-            <input id="locatorCssOutput" readonly type="text" />
-            <span aria-live="polite" class="field-feedback" id="locatorCssFeedback"></span>
-          </div>
-          <div>
-            <label for="locatorXpathOutput">XPath locator (read-only)</label>
-            <input id="locatorXpathOutput" readonly type="text" />
-            <span aria-live="polite" class="field-feedback" id="locatorXpathFeedback"></span>
-          </div>
         </div>
         <div class="actions locator-actions">
           <button class="secondary" id="copyLocatorButton" type="button">

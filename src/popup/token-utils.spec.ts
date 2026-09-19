@@ -2,16 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   formatDuration,
   hasUnexpiredToken,
-  locatorStringFor,
   toElementDefinition,
   tokenIconName,
 } from './token-utils';
-import type { SelectedLocator } from './types';
+import type { LocatorCandidate } from './types';
 
-const locator: SelectedLocator = {
-  cssSelector: '#checkout',
-  xpath: `//*[@id="checkout"]`,
-  selectedAt: '2026-05-19T20:00:00.000Z',
+const locator: LocatorCandidate = {
+  locatorType: 'CSS',
+  locatorString: '#checkout',
+  strategy: 'ID',
 };
 
 describe('token utils', () => {
@@ -29,23 +28,9 @@ describe('token utils', () => {
     });
   });
 
-  describe('locatorStringFor', () => {
-    it('returns the CSS selector when CSS is selected', () => {
-      expect(locatorStringFor(locator, 'CSS')).toBe('#checkout');
-    });
-
-    it('returns the XPath selector when XPath is selected', () => {
-      expect(locatorStringFor(locator, 'XPATH')).toBe(`//*[@id="checkout"]`);
-    });
-
-    it('returns an empty locator string when no locator exists', () => {
-      expect(locatorStringFor(null, 'CSS')).toBe('');
-    });
-  });
-
   describe('toElementDefinition', () => {
     it('creates a trimmed element definition', () => {
-      const result = toElementDefinition(locator, 'CSS', 'BUTTON', ' Checkout ');
+      const result = toElementDefinition(locator, 'BUTTON', ' Checkout ');
 
       expect(result).toEqual({
         valid: true,
@@ -59,7 +44,7 @@ describe('token utils', () => {
     });
 
     it('rejects missing locators', () => {
-      const result = toElementDefinition(null, 'CSS', 'BUTTON', 'Checkout');
+      const result = toElementDefinition(null, 'BUTTON', 'Checkout');
 
       expect(result).toEqual({
         valid: false,
@@ -68,7 +53,7 @@ describe('token utils', () => {
     });
 
     it('rejects blank labels', () => {
-      const result = toElementDefinition(locator, 'CSS', 'BUTTON', '   ');
+      const result = toElementDefinition(locator, 'BUTTON', '   ');
 
       expect(result).toEqual({
         valid: false,

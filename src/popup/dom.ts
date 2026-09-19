@@ -1,4 +1,4 @@
-import type { ElementType, LocatorType } from './types';
+import type { ElementType } from './types';
 
 export function requiredInput(id: string): HTMLInputElement {
   return requiredElement<HTMLInputElement>(id);
@@ -39,15 +39,11 @@ export function getPopupElements() {
     targetSummary: requiredElement<HTMLParagraphElement>('targetSummary'),
     testTrailsConnectionButton: requiredButton('testTrailsConnectionButton'),
     trailsConnectionFeedback: requiredElement<HTMLDivElement>('trailsConnectionFeedback'),
-    locatorTypeInput: requiredSelect<LocatorType>('locatorType'),
+    locatorCandidateInput: requiredSelect<string>('locatorCandidate'),
     locatorOutput: requiredTextArea('locatorOutput'),
     editLocatorButton: requiredButton('editLocatorButton'),
     validateLocatorButton: requiredButton('validateLocatorButton'),
     locatorValidationFeedback: requiredElement<HTMLSpanElement>('locatorValidationFeedback'),
-    locatorCssOutput: requiredInput('locatorCssOutput'),
-    locatorXpathOutput: requiredInput('locatorXpathOutput'),
-    locatorCssFeedback: requiredElement<HTMLSpanElement>('locatorCssFeedback'),
-    locatorXpathFeedback: requiredElement<HTMLSpanElement>('locatorXpathFeedback'),
     copyLocatorButton: requiredButton('copyLocatorButton'),
     copyLocatorFeedback: requiredElement<HTMLSpanElement>('copyLocatorFeedback'),
     addToQueueButton: requiredButton('addToQueueButton'),

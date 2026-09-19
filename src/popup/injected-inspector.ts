@@ -166,8 +166,7 @@ export function injectedInspector(request?: {
     event.stopPropagation();
 
     const selectedElement = {
-      cssSelector: generateCssSelector(state.hoveredElement),
-      xpath: generateXPath(state.hoveredElement),
+      candidates: generateLocatorCandidates(state.hoveredElement),
       selectedAt: new Date().toISOString(),
     };
 
@@ -175,11 +174,15 @@ export function injectedInspector(request?: {
     chrome.runtime
       .sendMessage({
         type: 'TRAILS_ELEMENT_SELECTED',
-        cssSelector: selectedElement.cssSelector,
-        xpath: selectedElement.xpath,
+        candidates: selectedElement.candidates,
       })
       .catch(() => undefined);
-    navigator.clipboard?.writeText(selectedElement.cssSelector).catch(() => undefined);
+    const firstCssCandidate = selectedElement.candidates.find(
+      (candidate) => candidate.locatorType === 'CSS',
+    );
+    firstCssCandidate
+      ? navigator.clipboard?.writeText(firstCssCandidate.locatorString).catch(() => undefined)
+      : undefined;
     stopInspector();
   }
 
@@ -203,24 +206,71 @@ export function injectedInspector(request?: {
     state.overlay.style.height = `${rect.height}px`;
   }
 
-  function generateCssSelector(element: Element): string {
-    if (!(element instanceof HTMLElement)) {
-      return element.tagName.toLowerCase();
-    }
+  type LocatorCandidate = {
+    locatorType: 'CSS' | 'XPATH';
+    locatorString: string;
+    strategy: string;
+  };
+
+  function generateLocatorCandidates(element: Element): LocatorCandidate[] {
+    const candidates: LocatorCandidate[] = [];
+    const add = (locatorType: 'CSS' | 'XPATH', locatorString: string, strategy: string): void => {
+      try {
+        const matches =
+          locatorType === 'CSS'
+            ? Array.from(document.querySelectorAll(locatorString))
+            : xpathElements(locatorString);
+        if (matches.length === 1 && matches[0] === element) {
+          candidates.push({ locatorType, locatorString, strategy });
+        }
+      } catch {
+        // Ignore unusable candidate; structural fallback remains available.
+      }
+    };
 
     if (element.id) {
-      return `#${escapeCss(element.id)}`;
+      add('CSS', `#${escapeCss(element.id)}`, 'ID');
     }
 
-    const stableAttributeSelector = stableAttributeSelectorFor(element);
-    if (stableAttributeSelector) {
-      return stableAttributeSelector;
+    for (const attribute of ['data-testid', 'data-test', 'name', 'aria-label']) {
+      const value = element.getAttribute(attribute);
+      if (value) {
+        add(
+          'CSS',
+          `${element.tagName.toLowerCase()}[${attribute}="${cssAttributeEscape(value)}"]`,
+          attribute,
+        );
+      }
     }
 
+    add('CSS', structuralCssSelector(element), 'Structural path');
+
+    if (element.id) {
+      add('XPATH', `//*[@id=${xpathLiteral(element.id)}]`, 'ID');
+    }
+    for (const attribute of ['data-testid', 'data-test', 'name', 'aria-label']) {
+      const value = element.getAttribute(attribute);
+      if (value) {
+        add('XPATH', `//*[@${attribute}=${xpathLiteral(value)}]`, attribute);
+      }
+    }
+    add('XPATH', structuralXPath(element), 'Structural path');
+
+    return candidates.filter(
+      (candidate, index) =>
+        candidates.findIndex(
+          (other) =>
+            other.locatorType === candidate.locatorType &&
+            other.locatorString === candidate.locatorString,
+        ) === index,
+    );
+  }
+
+  function structuralCssSelector(element: Element): string {
     const parts: string[] = [];
     let current: Element | null = element;
 
-    while (current && current instanceof HTMLElement && current !== document.body) {
+    while (current) {
       parts.unshift(selectorPartFor(current));
       current = current.parentElement;
     }
@@ -228,23 +278,9 @@ export function injectedInspector(request?: {
     return parts.join(' > ');
   }
 
-  function stableAttributeSelectorFor(element: HTMLElement): string | null {
-    const tagName = element.tagName.toLowerCase();
-    const stableAttributes = ['data-testid', 'data-test', 'name', 'aria-label'];
-
-    for (const attribute of stableAttributes) {
-      const value = element.getAttribute(attribute);
-      if (value) {
-        return `${tagName}[${attribute}="${cssAttributeEscape(value)}"]`;
-      }
-    }
-
-    return null;
-  }
-
-  function selectorPartFor(element: HTMLElement): string {
+  function selectorPartFor(element: Element): string {
     let selector = element.tagName.toLowerCase();
-    const stableClass = Array.from(element.classList).find(
+    const stableClass = Array.from(element.classList ?? []).find(
       (className) => !looksGenerated(className),
     );
 
@@ -267,29 +303,24 @@ export function injectedInspector(request?: {
     return selector;
   }
 
-  function generateXPath(element: Element): string {
-    if (element.id) {
-      return `//*[@id="${xpathEscape(element.id)}"]`;
-    }
-
+  function structuralXPath(element: Element): string {
     const parts: string[] = [];
     let current: Element | null = element;
 
-    while (current && current.nodeType === Node.ELEMENT_NODE) {
-      const tagName = current.tagName.toLowerCase();
-      parts.unshift(`${tagName}[${siblingIndexFor(current, tagName)}]`);
+    while (current) {
+      parts.unshift(`${xpathElementName(current)}[${siblingIndexFor(current)}]`);
       current = current.parentElement;
     }
 
     return `/${parts.join('/')}`;
   }
 
-  function siblingIndexFor(element: Element, tagName: string): number {
+  function siblingIndexFor(element: Element): number {
     let index = 1;
     let sibling = element.previousElementSibling;
 
     while (sibling) {
-      if (sibling.tagName.toLowerCase() === tagName) {
+      if (sibling.tagName === element.tagName && sibling.namespaceURI === element.namespaceURI) {
         index++;
       }
       sibling = sibling.previousElementSibling;
@@ -308,17 +339,54 @@ export function injectedInspector(request?: {
   }
 
   function escapeCss(value: string): string {
-    return typeof CSS !== 'undefined' && CSS.escape
-      ? CSS.escape(value)
-      : value.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+    if (typeof CSS !== 'undefined' && CSS.escape) {
+      return CSS.escape(value);
+    }
+
+    return Array.from(value)
+      .map((character, index) => {
+        const codePoint = character.codePointAt(0)!;
+        if (codePoint === 0) return '\\FFFD';
+        if (
+          (codePoint >= 1 && codePoint <= 31) ||
+          codePoint === 127 ||
+          (index === 0 && codePoint >= 48 && codePoint <= 57) ||
+          (index === 1 && codePoint >= 48 && codePoint <= 57 && value[0] === '-')
+        ) {
+          return `\\${codePoint.toString(16)} `;
+        }
+        if (index === 0 && character === '-' && value.length === 1) return '\\-';
+        return /[a-zA-Z0-9_-]/.test(character) || codePoint >= 128 ? character : `\\${character}`;
+      })
+      .join('');
   }
 
   function cssAttributeEscape(value: string): string {
-    return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return Array.from(value)
+      .map((character) => {
+        if (character === '\\' || character === '"') return `\\${character}`;
+        if (character === '\n') return '\\a ';
+        if (character === '\r') return '\\d ';
+        if (character === '\f') return '\\c ';
+        return character;
+      })
+      .join('');
   }
 
-  function xpathEscape(value: string): string {
-    return value.replace(/"/g, '\\"');
+  function xpathLiteral(value: string): string {
+    if (!value.includes("'")) return `'${value}'`;
+    if (!value.includes('"')) return `"${value}"`;
+    return `concat(${value
+      .split(/(['"])/)
+      .map((part) => (part === "'" ? '"\'"' : part === '"' ? "'\"'" : `'${part}'`))
+      .join(', ')})`;
+  }
+
+  function xpathElementName(element: Element): string {
+    const tagName = element.tagName.toLowerCase();
+    return element.namespaceURI === 'http://www.w3.org/2000/svg'
+      ? `*[local-name()=${xpathLiteral(tagName)}]`
+      : tagName;
   }
 
   function countXPathElements(locatorString: string): number {

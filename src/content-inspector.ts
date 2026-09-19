@@ -103,7 +103,10 @@ function handleClick(event: MouseEvent): void {
 
   browser.storage.local.set({ lastSelectedElement: selectedElement });
   browser.runtime.sendMessage(toSelectedElementMessage(selectedElement)).catch(() => undefined);
-  writeToClipboard(selectedElement.cssSelector);
+  writeToClipboard(
+    selectedElement.candidates.find((candidate) => candidate.locatorType === 'CSS')
+      ?.locatorString ?? '',
+  );
   stopInspector();
 }
 

@@ -5,8 +5,10 @@ import type { SelectedLocator } from './types';
 vi.mock('webextension-polyfill', () => ({ default: {} }));
 
 const locator: SelectedLocator = {
-  cssSelector: '#checkout',
-  xpath: `//*[@id="checkout"]`,
+  candidates: [
+    { locatorType: 'CSS', locatorString: '#checkout', strategy: 'ID' },
+    { locatorType: 'XPATH', locatorString: `//*[@id='checkout']`, strategy: 'ID' },
+  ],
   selectedAt: '2026-05-19T20:00:00.000Z',
 };
 
@@ -20,21 +22,17 @@ function createHarness(
 ) {
   document.body.innerHTML = `
         <input id="trailsServiceUrl" value=" http://localhost:8080/ " />
-        <select id="locatorType">
+        <select id="locatorCandidate">
             <option value="CSS">CSS</option>
             <option value="XPATH">XPath</option>
         </select>
         <textarea id="locatorOutput"></textarea>
-        <input id="locatorCssOutput" />
-        <input id="locatorXpathOutput" />
         <button id="copyLocatorButton"></button>
         <span id="copyLocatorFeedback"></span>
         <button id="editLocatorButton"></button>
         <button id="validateLocatorButton"></button>
         <button id="retryScreenshotButton" hidden></button>
         <span id="locatorValidationFeedback"></span>
-        <span id="locatorCssFeedback"></span>
-        <span id="locatorXpathFeedback"></span>
         <select id="elementType">
             <option value="BUTTON">BUTTON</option>
         </select>
@@ -46,23 +44,24 @@ function createHarness(
   const saveSettings = vi.fn().mockResolvedValue(undefined);
   const setStatus = vi.fn();
   const uploadScreenshot = vi.fn().mockResolvedValue(undefined);
-  const validateLocator = vi.fn().mockResolvedValue({
-    type: 'TRAILS_LOCATOR_VALIDATED',
+  const validateLocator = vi.fn(async (locatorType: 'CSS' | 'XPATH', locatorString: string) => ({
+    type: 'TRAILS_LOCATOR_VALIDATED' as const,
     requestId: 'test',
-    locatorType: 'CSS',
-    locatorString: '#checkout',
+    locatorType,
+    locatorString,
     matchCount: 1,
-    status: 'unique',
+    status: 'unique' as const,
     message: 'One matching element found.',
-  });
+  }));
   const controller = createElementController(
     {
       trailsServiceUrlInput: document.getElementById('trailsServiceUrl') as HTMLInputElement,
-      locatorTypeInput: document.getElementById('locatorType') as HTMLSelectElement,
+      locatorCandidateInput: document.getElementById('locatorCandidate') as HTMLSelectElement,
       locatorOutput: document.getElementById('locatorOutput') as HTMLTextAreaElement,
-      locatorCssOutput: document.getElementById('locatorCssOutput') as HTMLInputElement,
-      locatorXpathOutput: document.getElementById('locatorXpathOutput') as HTMLInputElement,
       copyLocatorFeedback: document.getElementById('copyLocatorFeedback') as HTMLSpanElement,
+      locatorValidationFeedback: document.getElementById(
+        'locatorValidationFeedback',
+      ) as HTMLSpanElement,
       retryScreenshotButton: document.getElementById('retryScreenshotButton') as HTMLButtonElement,
       elementTypeInput: document.getElementById('elementType') as HTMLSelectElement,
       elementLabelInput: document.getElementById('elementLabel') as HTMLInputElement,
@@ -91,9 +90,13 @@ function createHarness(
     putElement,
     saveSettings,
     locatorOutput: document.getElementById('locatorOutput') as HTMLTextAreaElement,
-    locatorTypeInput: document.getElementById('locatorType') as HTMLSelectElement,
+    locatorCandidateInput: document.getElementById('locatorCandidate') as HTMLSelectElement,
+    locatorValidationFeedback: document.getElementById(
+      'locatorValidationFeedback',
+    ) as HTMLSpanElement,
     setStatus,
     uploadScreenshot,
+    validateLocator,
     retryScreenshotButton: document.getElementById('retryScreenshotButton') as HTMLButtonElement,
   };
 }
@@ -103,15 +106,80 @@ describe('element controller', () => {
     document.body.innerHTML = '';
   });
 
-  it('renders the selected locator with the active locator type', () => {
-    const { controller, locatorOutput, locatorTypeInput } = createHarness();
+  it('renders and switches selected locator candidates', () => {
+    const { controller, locatorOutput, locatorCandidateInput } = createHarness();
 
     controller.setSelectedLocator(locator);
     expect(locatorOutput.value).toBe('#checkout');
 
-    locatorTypeInput.value = 'XPATH';
-    controller.refreshSelectedLocator();
-    expect(locatorOutput.value).toBe(`//*[@id="checkout"]`);
+    locatorCandidateInput.value = '1';
+    controller.selectLocatorCandidate();
+    expect(locatorOutput.value).toBe(`//*[@id='checkout']`);
+  });
+
+  it('validates and creates a definition from selected candidate', async () => {
+    const { controller, locatorCandidateInput } = createHarness();
+    controller.setSelectedLocator(locator);
+    locatorCandidateInput.value = '1';
+    controller.selectLocatorCandidate();
+
+    await controller.validateCurrentLocator();
+
+    expect(
+      controller.getQueueCandidate({
+        applicationId: '7',
+        applicationLabel: 'Shop',
+        stageId: '8',
+        stageLabel: 'Production',
+      })?.definition,
+    ).toMatchObject({
+      locatorType: 'XPATH',
+      locatorString: `//*[@id='checkout']`,
+    });
+  });
+
+  it('ignores validation response for a candidate switched while request was pending', async () => {
+    const { controller, locatorCandidateInput, locatorValidationFeedback, validateLocator } =
+      createHarness();
+    let resolveValidation!: (value: {
+      type: 'TRAILS_LOCATOR_VALIDATED';
+      requestId: string;
+      locatorType: 'CSS';
+      locatorString: string;
+      matchCount: number;
+      status: 'unique';
+      message: string;
+    }) => void;
+    validateLocator.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveValidation = resolve;
+      }),
+    );
+    controller.setSelectedLocator(locator);
+
+    const validation = controller.validateCurrentLocator();
+    locatorCandidateInput.value = '1';
+    controller.selectLocatorCandidate();
+    resolveValidation({
+      type: 'TRAILS_LOCATOR_VALIDATED',
+      requestId: 'test',
+      locatorType: 'CSS',
+      locatorString: '#checkout',
+      matchCount: 1,
+      status: 'unique',
+      message: 'One matching element found.',
+    });
+    await validation;
+
+    expect(locatorValidationFeedback.textContent).toBe('Locator requires validation.');
+    expect(
+      controller.getQueueCandidate({
+        applicationId: '7',
+        applicationLabel: 'Shop',
+        stageId: '8',
+        stageLabel: 'Production',
+      }),
+    ).toBeNull();
   });
 
   it('copies active locator only after clipboard resolves', async () => {
@@ -251,10 +319,7 @@ describe('element controller', () => {
     const screenshot = new Blob(['png'], { type: 'image/png' });
     const { controller, putElement, uploadScreenshot, retryScreenshotButton, setStatus } =
       createHarness(undefined, [], screenshot);
-    putElement.mockResolvedValue({
-      id: 42,
-      _links: { uploadScreenshot: { href: '/api/elements/42/screenshot', method: 'PUT' } },
-    });
+    putElement.mockResolvedValue({ id: 42 });
     uploadScreenshot.mockRejectedValueOnce(new Error('Service unavailable.'));
     controller.setSelectedLocator(locator);
     await controller.validateCurrentLocator();
@@ -265,6 +330,12 @@ describe('element controller', () => {
     expect(setStatus).toHaveBeenLastCalledWith(
       'Element created; screenshot upload failed: Error: Service unavailable.',
       'error',
+    );
+    expect(uploadScreenshot).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:8080/api/applications/7/stages/8/elements/42/screenshot',
+      screenshot,
+      'access-token',
     );
     expect(retryScreenshotButton.hidden).toBe(false);
 

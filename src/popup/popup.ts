@@ -21,7 +21,7 @@ import { createTabController } from './tabs';
 import { createTokenPanelController } from './token-panel-controller';
 import { TokenSession } from './token-session';
 import { createThemeController } from './theme-controller';
-import type { SelectedLocator, TabId } from './types';
+import type { LocatorCandidate, SelectedLocator, TabId } from './types';
 import { createStatusView } from './status-view';
 import { isLocatorCancelledMessage, isSelectedLocatorMessage, storageGet } from './utils';
 
@@ -46,15 +46,11 @@ export function startPopup(): void {
     targetSummary,
     testTrailsConnectionButton,
     trailsConnectionFeedback,
-    locatorTypeInput,
+    locatorCandidateInput,
     locatorOutput,
     editLocatorButton,
     validateLocatorButton,
     locatorValidationFeedback,
-    locatorCssOutput,
-    locatorXpathOutput,
-    locatorCssFeedback,
-    locatorXpathFeedback,
     copyLocatorButton,
     copyLocatorFeedback,
     addToQueueButton,
@@ -166,7 +162,6 @@ export function startPopup(): void {
     {
       getSelectedApplicationId: resourceController.getSelectedApplicationId,
       getSelectedStageId: resourceController.getSelectedStageId,
-      getCreateElementHref: resourceController.getCreateElementHref,
       restoreSelection: resourceController.restoreSelection,
       restoreToken: (settings) => tokenSession.restore(settings),
     },
@@ -201,15 +196,11 @@ export function startPopup(): void {
   elementController = createElementController(
     {
       trailsServiceUrlInput,
-      locatorTypeInput,
+      locatorCandidateInput,
       locatorOutput,
       locatorValidationFeedback,
-      locatorCssFeedback,
-      locatorXpathFeedback,
       editLocatorButton,
       validateLocatorButton,
-      locatorCssOutput,
-      locatorXpathOutput,
       copyLocatorFeedback,
       retryScreenshotButton,
       elementTypeInput,
@@ -322,8 +313,7 @@ export function startPopup(): void {
     createElementButton.addEventListener('click', elementController.createElement);
     applicationSelect.addEventListener('change', resourceController.selectApplicationResource);
     stageSelect.addEventListener('change', resourceController.selectStageResource);
-    locatorTypeInput.addEventListener('change', elementController.refreshSelectedLocator);
-    locatorTypeInput.addEventListener('change', elementController.refreshCreateAvailability);
+    locatorCandidateInput.addEventListener('change', elementController.selectLocatorCandidate);
     elementLabelInput.addEventListener('input', elementController.refreshCreateAvailability);
     trailsServiceUrlInput.addEventListener('input', connectionHealth.clear);
 
@@ -357,8 +347,7 @@ export function startPopup(): void {
       }
 
       elementController.setSelectedLocator({
-        cssSelector: message.cssSelector,
-        xpath: message.xpath,
+        candidates: message.candidates,
         selectedAt: new Date().toISOString(),
       });
       setStatus('Locator selected.', 'success');
@@ -393,10 +382,10 @@ export function startPopup(): void {
   }
 
   async function restoreSelectedLocator(): Promise<void> {
-    const result = await storageGet<{ lastSelectedElement?: SelectedLocator }>(
-      'lastSelectedElement',
+    const result = await storageGet<{ lastSelectedElement?: unknown }>('lastSelectedElement');
+    elementController.restoreSelectedLocator(
+      selectedLocatorFromStorage(result.lastSelectedElement),
     );
-    elementController.restoreSelectedLocator(result.lastSelectedElement ?? null);
   }
 
   async function saveSettings(): Promise<void> {
@@ -431,4 +420,53 @@ export function startPopup(): void {
       body,
     });
   }
+}
+
+export function selectedLocatorFromStorage(value: unknown): SelectedLocator | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const stored = value as Record<string, unknown>;
+  if (
+    Array.isArray(stored.candidates) &&
+    stored.candidates.length > 0 &&
+    typeof stored.selectedAt === 'string' &&
+    stored.candidates.every(isStoredCandidate)
+  ) {
+    return {
+      candidates: stored.candidates.map((candidate) => {
+        const storedCandidate = candidate as Record<string, unknown>;
+        return {
+          locatorType: storedCandidate.locatorType as LocatorCandidate['locatorType'],
+          locatorString: storedCandidate.locatorString as string,
+          strategy: storedCandidate.strategy as string,
+        };
+      }),
+      selectedAt: stored.selectedAt,
+    };
+  }
+  if (
+    typeof stored.cssSelector === 'string' &&
+    typeof stored.xpath === 'string' &&
+    typeof stored.selectedAt === 'string'
+  ) {
+    const candidates: LocatorCandidate[] = [
+      { locatorType: 'CSS' as const, locatorString: stored.cssSelector, strategy: 'Saved CSS' },
+      { locatorType: 'XPATH' as const, locatorString: stored.xpath, strategy: 'Saved XPath' },
+    ].filter((candidate) => candidate.locatorString);
+    return candidates.length > 0 ? { candidates, selectedAt: stored.selectedAt } : null;
+  }
+  return null;
+}
+
+function isStoredCandidate(candidate: unknown): boolean {
+  if (!candidate || typeof candidate !== 'object') {
+    return false;
+  }
+  const stored = candidate as Record<string, unknown>;
+  return (
+    (stored.locatorType === 'CSS' || stored.locatorType === 'XPATH') &&
+    typeof stored.locatorString === 'string' &&
+    typeof stored.strategy === 'string'
+  );
 }

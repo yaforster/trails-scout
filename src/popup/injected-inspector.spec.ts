@@ -71,16 +71,54 @@ describe('injected inspector', () => {
 
     expect(storageSet).toHaveBeenCalledWith({
       lastSelectedElement: expect.objectContaining({
-        cssSelector: '#checkout',
-        xpath: `//*[@id="checkout"]`,
+        candidates: [
+          { locatorType: 'CSS', locatorString: '#checkout', strategy: 'ID' },
+          {
+            locatorType: 'CSS',
+            locatorString: 'html > body > button',
+            strategy: 'Structural path',
+          },
+          { locatorType: 'XPATH', locatorString: `//*[@id='checkout']`, strategy: 'ID' },
+          {
+            locatorType: 'XPATH',
+            locatorString: '/html[1]/body[1]/button[1]',
+            strategy: 'Structural path',
+          },
+        ],
+        selectedAt: expect.any(String),
       }),
     });
     expect(sendMessage).toHaveBeenCalledWith({
       type: 'TRAILS_ELEMENT_SELECTED',
-      cssSelector: '#checkout',
-      xpath: `//*[@id="checkout"]`,
+      candidates: expect.arrayContaining([
+        { locatorType: 'CSS', locatorString: '#checkout', strategy: 'ID' },
+        { locatorType: 'XPATH', locatorString: `//*[@id='checkout']`, strategy: 'ID' },
+      ]),
     });
     expect(writeText).toHaveBeenCalledWith('#checkout');
+  });
+
+  it('skips colliding stable attributes and keeps structural fallback unique', () => {
+    const { storageSet } = mockChrome();
+    document.body.innerHTML = `
+      <button data-testid="duplicate">First</button>
+      <button data-testid="duplicate">Second</button>
+    `;
+    const button = document.querySelectorAll('button')[1];
+
+    injectedInspector();
+    button.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    const selectedElement = storageSet.mock.calls[0][0].lastSelectedElement;
+    expect(selectedElement.candidates).not.toContainEqual(
+      expect.objectContaining({ locatorString: 'button[data-testid="duplicate"]' }),
+    );
+    expect(selectedElement.candidates).toContainEqual({
+      locatorType: 'CSS',
+      locatorString: 'html > body > button:nth-of-type(2)',
+      strategy: 'Structural path',
+    });
   });
 
   it('stops without selecting when Escape is pressed', () => {

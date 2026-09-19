@@ -3,6 +3,13 @@ export interface InspectorMessage {
 }
 
 export type LocatorValidationStatus = 'no-match' | 'unique' | 'multiple' | 'invalid';
+export type LocatorType = 'CSS' | 'XPATH';
+
+export interface LocatorCandidate {
+  locatorType: LocatorType;
+  locatorString: string;
+  strategy: string;
+}
 
 export interface ValidateLocatorMessage {
   type: 'TRAILS_VALIDATE_LOCATOR';
@@ -44,13 +51,11 @@ export interface LocatorBoundsResult {
 
 export interface SelectedElementMessage {
   type: 'TRAILS_ELEMENT_SELECTED';
-  cssSelector: string;
-  xpath: string;
+  candidates: LocatorCandidate[];
 }
 
 export interface StoredSelectedElement {
-  cssSelector: string;
-  xpath: string;
+  candidates: LocatorCandidate[];
   selectedAt: string;
 }
 
@@ -61,8 +66,7 @@ export function createSelectedElement(
   selectedAt = new Date().toISOString(),
 ): StoredSelectedElement {
   return {
-    cssSelector: generateCssSelector(element),
-    xpath: generateXPath(element),
+    candidates: generateLocatorCandidates(element),
     selectedAt,
   };
 }
@@ -72,29 +76,80 @@ export function toSelectedElementMessage(
 ): SelectedElementMessage {
   return {
     type: 'TRAILS_ELEMENT_SELECTED',
-    cssSelector: selectedElement.cssSelector,
-    xpath: selectedElement.xpath,
+    candidates: selectedElement.candidates,
   };
 }
 
 export function generateCssSelector(element: Element): string {
-  if (!(element instanceof HTMLElement)) {
-    return element.tagName.toLowerCase();
+  return candidateFor(generateLocatorCandidates(element), 'CSS');
+}
+
+export function generateXPath(element: Element): string {
+  return candidateFor(generateLocatorCandidates(element), 'XPATH');
+}
+
+export function generateLocatorCandidates(element: Element): LocatorCandidate[] {
+  const documentRef = element.ownerDocument;
+  if (!documentRef) {
+    return [];
   }
+
+  const candidates: LocatorCandidate[] = [];
+  const addCss = (locatorString: string, strategy: string): void => {
+    if (matchesOnlyElement(documentRef, 'CSS', locatorString, element)) {
+      candidates.push({ locatorType: 'CSS', locatorString, strategy });
+    }
+  };
+  const addXPath = (locatorString: string, strategy: string): void => {
+    if (matchesOnlyElement(documentRef, 'XPATH', locatorString, element)) {
+      candidates.push({ locatorType: 'XPATH', locatorString, strategy });
+    }
+  };
 
   if (element.id) {
-    return `#${escapeCss(element.id)}`;
+    addCss(`#${escapeCss(element.id)}`, 'ID');
   }
-
-  const stableAttributeSelector = stableAttributeSelectorFor(element);
-  if (stableAttributeSelector) {
-    return stableAttributeSelector;
+  for (const attribute of stableAttributes) {
+    const value = element.getAttribute(attribute);
+    if (value) {
+      addCss(
+        `${element.tagName.toLowerCase()}[${attribute}="${cssAttributeEscape(value)}"]`,
+        attribute,
+      );
+    }
   }
+  addCss(structuralCssSelector(element), 'Structural path');
 
+  if (element.id) {
+    addXPath(`//*[@id=${xpathLiteral(element.id)}]`, 'ID');
+  }
+  for (const attribute of stableAttributes) {
+    const value = element.getAttribute(attribute);
+    if (value) {
+      addXPath(`//*[@${attribute}=${xpathLiteral(value)}]`, attribute);
+    }
+  }
+  addXPath(structuralXPath(element), 'Structural path');
+
+  return candidates.filter(
+    (candidate, index) =>
+      candidates.findIndex(
+        (other) =>
+          other.locatorType === candidate.locatorType &&
+          other.locatorString === candidate.locatorString,
+      ) === index,
+  );
+}
+
+function candidateFor(candidates: LocatorCandidate[], locatorType: LocatorType): string {
+  return candidates.find((candidate) => candidate.locatorType === locatorType)?.locatorString ?? '';
+}
+
+function structuralCssSelector(element: Element): string {
   const parts: string[] = [];
   let current: Element | null = element;
 
-  while (current && current instanceof HTMLElement && current !== document.body) {
+  while (current) {
     parts.unshift(selectorPartFor(current));
     current = current.parentElement;
   }
@@ -102,17 +157,12 @@ export function generateCssSelector(element: Element): string {
   return parts.join(' > ');
 }
 
-export function generateXPath(element: Element): string {
-  if (element.id) {
-    return `//*[@id="${xpathEscape(element.id)}"]`;
-  }
-
+function structuralXPath(element: Element): string {
   const parts: string[] = [];
   let current: Element | null = element;
 
-  while (current && current.nodeType === Node.ELEMENT_NODE) {
-    const tagName = current.tagName.toLowerCase();
-    parts.unshift(`${tagName}[${siblingIndexFor(current, tagName)}]`);
+  while (current) {
+    parts.unshift(`${xpathElementName(current)}[${siblingIndexFor(current)}]`);
     current = current.parentElement;
   }
 
@@ -245,22 +295,11 @@ export function looksGenerated(className: string): boolean {
   );
 }
 
-function stableAttributeSelectorFor(element: HTMLElement): string | null {
-  const tagName = element.tagName.toLowerCase();
-
-  for (const attribute of stableAttributes) {
-    const value = element.getAttribute(attribute);
-    if (value) {
-      return `${tagName}[${attribute}="${cssAttributeEscape(value)}"]`;
-    }
-  }
-
-  return null;
-}
-
-function selectorPartFor(element: HTMLElement): string {
+function selectorPartFor(element: Element): string {
   let selector = element.tagName.toLowerCase();
-  const stableClass = Array.from(element.classList).find((className) => !looksGenerated(className));
+  const stableClass = Array.from(element.classList ?? []).find(
+    (className) => !looksGenerated(className),
+  );
 
   if (stableClass) {
     selector += `.${escapeCss(stableClass)}`;
@@ -281,12 +320,12 @@ function selectorPartFor(element: HTMLElement): string {
   return selector;
 }
 
-function siblingIndexFor(element: Element, tagName: string): number {
+function siblingIndexFor(element: Element): number {
   let index = 1;
   let sibling = element.previousElementSibling;
 
   while (sibling) {
-    if (sibling.tagName.toLowerCase() === tagName) {
+    if (sibling.tagName === element.tagName && sibling.namespaceURI === element.namespaceURI) {
       index++;
     }
     sibling = sibling.previousElementSibling;
@@ -296,17 +335,87 @@ function siblingIndexFor(element: Element, tagName: string): number {
 }
 
 function escapeCss(value: string): string {
-  return typeof CSS !== 'undefined' && CSS.escape
-    ? CSS.escape(value)
-    : value.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+  if (typeof CSS !== 'undefined' && CSS.escape) {
+    return CSS.escape(value);
+  }
+
+  return Array.from(value)
+    .map((character, index) => {
+      const codePoint = character.codePointAt(0)!;
+      if (codePoint === 0) {
+        return '\\FFFD';
+      }
+      if (
+        (codePoint >= 1 && codePoint <= 31) ||
+        codePoint === 127 ||
+        (index === 0 && codePoint >= 48 && codePoint <= 57) ||
+        (index === 1 && codePoint >= 48 && codePoint <= 57 && value[0] === '-')
+      ) {
+        return `\\${codePoint.toString(16)} `;
+      }
+      if (index === 0 && character === '-' && value.length === 1) {
+        return '\\-';
+      }
+      return /[a-zA-Z0-9_-]/.test(character) || codePoint >= 128 ? character : `\\${character}`;
+    })
+    .join('');
 }
 
 function cssAttributeEscape(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return Array.from(value)
+    .map((character) => {
+      if (character === '\\' || character === '"') {
+        return `\\${character}`;
+      }
+      if (character === '\n') {
+        return '\\a ';
+      }
+      if (character === '\r') {
+        return '\\d ';
+      }
+      if (character === '\f') {
+        return '\\c ';
+      }
+      return character;
+    })
+    .join('');
 }
 
-function xpathEscape(value: string): string {
-  return value.replace(/"/g, '\\"');
+function xpathLiteral(value: string): string {
+  if (!value.includes("'")) {
+    return `'${value}'`;
+  }
+  if (!value.includes('"')) {
+    return `"${value}"`;
+  }
+  return `concat(${value
+    .split(/(['"])/)
+    .map((part) => (part === "'" ? '"\'"' : part === '"' ? "'\"'" : `'${part}'`))
+    .join(', ')})`;
+}
+
+function xpathElementName(element: Element): string {
+  const tagName = element.tagName.toLowerCase();
+  return element.namespaceURI === 'http://www.w3.org/2000/svg'
+    ? `*[local-name()=${xpathLiteral(tagName)}]`
+    : tagName;
+}
+
+function matchesOnlyElement(
+  documentRef: Document,
+  locatorType: LocatorType,
+  locatorString: string,
+  element: Element,
+): boolean {
+  try {
+    const matches =
+      locatorType === 'CSS'
+        ? Array.from(documentRef.querySelectorAll(locatorString))
+        : xpathElements(documentRef, locatorString);
+    return matches.length === 1 && matches[0] === element;
+  } catch {
+    return false;
+  }
 }
 
 function countXPathElements(documentRef: Document, locatorString: string): number {

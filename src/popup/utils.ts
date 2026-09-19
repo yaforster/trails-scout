@@ -1,5 +1,5 @@
 import browser from 'webextension-polyfill';
-import type { SelectedLocator } from './types';
+import type { SelectedElementMessage } from '../locator-selectors';
 
 export async function getActiveTab(): Promise<browser.Tabs.Tab> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
@@ -34,12 +34,19 @@ export function hasId<T extends { id?: number }>(value: T): value is T & { id: n
   return value.id !== undefined;
 }
 
-export function isSelectedLocatorMessage(message: unknown): message is SelectedLocator {
+export function isSelectedLocatorMessage(message: unknown): message is SelectedElementMessage {
   return (
     isRecord(message) &&
     message.type === 'TRAILS_ELEMENT_SELECTED' &&
-    typeof message.cssSelector === 'string' &&
-    typeof message.xpath === 'string'
+    Array.isArray(message.candidates) &&
+    message.candidates.length > 0 &&
+    message.candidates.every(
+      (candidate) =>
+        isRecord(candidate) &&
+        (candidate.locatorType === 'CSS' || candidate.locatorType === 'XPATH') &&
+        typeof candidate.locatorString === 'string' &&
+        typeof candidate.strategy === 'string',
+    )
   );
 }
 

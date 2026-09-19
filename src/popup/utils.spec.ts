@@ -84,17 +84,15 @@ describe('popup utils', () => {
     it('detects selected locator messages', () => {
       const result = isSelectedLocatorMessage({
         type: 'TRAILS_ELEMENT_SELECTED',
-        cssSelector: '#checkout',
-        xpath: "//*[@id='checkout']",
+        candidates: [{ locatorType: 'CSS', locatorString: '#checkout', strategy: 'ID' }],
       });
 
       expect(result).toBe(true);
     });
 
-    it('rejects selected locator messages without an xpath', () => {
+    it('rejects selected locator messages without candidates', () => {
       const result = isSelectedLocatorMessage({
         type: 'TRAILS_ELEMENT_SELECTED',
-        cssSelector: '#checkout',
       });
 
       expect(result).toBe(false);
